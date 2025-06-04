@@ -48,7 +48,7 @@ app.include_router(orders_router, prefix="/orders", tags=["orders"])
 async def admin_fetch_orders(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(get_api_key)
 ):
     """
     Haalt recente bestellingen op van Plug&Pay en slaat ze op in de database.
