@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 // Mock data voor development - vervang later met echte API calls
@@ -13,7 +12,7 @@ const mockOrders = [
     beschrijving: "Ze wordt 1 jaar, ouders vroegen om een levensles cadeau...",
     structuur: "3 coupletten + refrein",
     rijm: "ABBA",
-    status: "nieuw",
+    status: "nieuw" as const,
     datum: "2024-01-15",
     songtekst: ""
   },
@@ -27,7 +26,7 @@ const mockOrders = [
     beschrijving: "Voor onze 5-jarige relatie, hij houdt van gitaar spelen...",
     structuur: "2 coupletten + refrein",
     rijm: "AABB",
-    status: "gegenereerd",
+    status: "gegenereerd" as const,
     datum: "2024-01-14",
     songtekst: "In de avond als de sterren schijnen helder\nDenk ik aan jou, mijn allerliefste kelder..."
   },
@@ -41,7 +40,7 @@ const mockOrders = [
     beschrijving: "Ze wordt 8 jaar en houdt van paarden en tekenen...",
     structuur: "3 coupletten + refrein",
     rijm: "ABAB",
-    status: "gegenereerd",
+    status: "gegenereerd" as const,
     datum: "2024-01-13",
     songtekst: "Kleine Lisa wordt vandaag acht jaar\nMet haar penselen en haar krullen haar..."
   }
