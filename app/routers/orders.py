@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.services.plugpay_client import fetch_and_store_recent_orders, PlugPayAPIError
-from app.auth.token import verify_api_key
+from app.auth.token import get_api_key
 
 # Configureer logging
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ router = APIRouter(
 async def fetch_orders(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(get_api_key)
 ):
     """
     Haalt recente bestellingen op van Plug&Pay en slaat ze op in de database.
