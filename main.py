@@ -8,6 +8,7 @@ import os
 
 # Importeer routers
 from app.routers.songs import router as songs_router
+from app.routers.orders import router as orders_router
 
 # Importeer database en services
 from app.db.session import get_db, init_db
@@ -40,6 +41,7 @@ def startup_db_client():
 
 # Voeg routers toe
 app.include_router(songs_router, prefix="/api/songs", tags=["songs"])
+app.include_router(orders_router, prefix="/orders", tags=["orders"])
 
 # Admin route voor het handmatig ophalen van bestellingen
 @app.post("/api/admin/fetch-orders", tags=["admin"])
