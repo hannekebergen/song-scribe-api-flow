@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, Eye } from 'lucide-react';
@@ -9,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ordersApi, Order } from '@/services/api';
+import FetchOrdersCard from './FetchOrdersCard';
 
 const Dashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -89,74 +89,82 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters & Zoeken
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Zoek op voornaam</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Voornaam..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-1">
+          <FetchOrdersCard />
+        </div>
+        
+        <div className="lg:col-span-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filters & Zoeken
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Zoek op voornaam</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Voornaam..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Thema</label>
+                  <Select value={themaFilter} onValueChange={setThemaFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Alle themas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alle themas</SelectItem>
+                      {getUniqueThemas().map(thema => (
+                        <SelectItem key={thema} value={thema}>{thema}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Alle statussen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alle statussen</SelectItem>
+                      <SelectItem value="nieuw">Nieuw</SelectItem>
+                      <SelectItem value="gegenereerd">Gegenereerd</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Acties</label>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setThemaFilter('all');
+                      setStatusFilter('all');
+                    }}
+                    className="w-full"
+                  >
+                    Reset filters
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Thema</label>
-              <Select value={themaFilter} onValueChange={setThemaFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Alle themas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle themas</SelectItem>
-                  {getUniqueThemas().map(thema => (
-                    <SelectItem key={thema} value={thema}>{thema}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Alle statussen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle statussen</SelectItem>
-                  <SelectItem value="nieuw">Nieuw</SelectItem>
-                  <SelectItem value="gegenereerd">Gegenereerd</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Acties</label>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm('');
-                  setThemaFilter('all');
-                  setStatusFilter('all');
-                }}
-                className="w-full"
-              >
-                Reset filters
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <Card>
         <CardHeader>
