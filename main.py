@@ -13,7 +13,7 @@ from app.routers.orders import router as orders_router
 # Importeer database en services
 from app.db.session import get_db, init_db
 from app.services.plugpay_client import fetch_and_store_recent_orders, PlugPayAPIError
-from app.auth.token import verify_api_key
+from app.auth.token import get_api_key
 
 app = FastAPI(
     title="JouwSong.nl API",
