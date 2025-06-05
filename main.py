@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Depends, HTTPException, BackgroundTasks
+from fastapi import Depends, HTTPException, BackgroundTasks, Response
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import logging
@@ -84,9 +84,14 @@ async def admin_fetch_orders(
     except PlugPayAPIError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+@app.get("/", include_in_schema=False)
 async def root():
     return {"message": "Welkom bij de JouwSong.nl API"}
+
+@app.head("/", include_in_schema=False)
+async def root_head():
+    # Render verwacht alleen status 200, geen body
+    return Response(status_code=200)
 
 if __name__ == "__main__":
     import uvicorn
