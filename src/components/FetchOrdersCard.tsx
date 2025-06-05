@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { wakeBackend } from '@/api/wakeBackend';
 
 interface FetchResult {
   new_orders: number;
@@ -20,6 +21,9 @@ const FetchOrdersCard = () => {
     setResult(null);
 
     try {
+      // Wake backend before fetching orders to avoid cold-start 404
+      await wakeBackend();
+      
       const response = await fetch('https://song-scribe-api-flow.onrender.com/orders/fetch', {
         method: 'POST',
         headers: {
