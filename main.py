@@ -5,6 +5,11 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import logging
 import os
+import time
+from starlette.middleware.base import BaseHTTPMiddleware
+
+# Configure logging level from environment variable
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 
 # Importeer routers
 from app.routers.songs import router as songs_router
@@ -20,6 +25,22 @@ app = FastAPI(
     description="Backend API voor jouwsong.nl om songtekstprompts te genereren",
     version="0.1.0"
 )
+
+# Simple request logger middleware
+class SimpleLogger(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        start = time.time()
+        response = await call_next(request)
+        duration = (time.time() - start) * 1000
+        origin = request.headers.get("origin")
+        print(
+            f"{request.method} {request.url.path} "
+            f"status={response.status_code} "
+            f"origin={origin or '-'} took={duration:.0f}ms"
+        )
+        return response
+
+app.add_middleware(SimpleLogger)
 
 # CORS configuratie voor frontend toegang vanaf Vercel
 app.add_middleware(
