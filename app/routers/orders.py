@@ -5,7 +5,8 @@ Deze module bevat API endpoints voor het beheren van bestellingen.
 """
 
 import logging
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -19,6 +20,18 @@ router = APIRouter(
     tags=["orders"],
     responses={404: {"description": "Not found"}},
 )
+
+@router.options("/fetch")
+async def options_fetch_orders():
+    """
+    Handles OPTIONS preflight requests for the /fetch endpoint.
+    This is necessary for CORS when the request includes custom headers like X-API-Key.
+    
+    Returns:
+        Een lege 200 OK response met de juiste CORS headers
+    """
+    return JSONResponse(content={})
+
 
 @router.post("/fetch")
 async def fetch_orders(
