@@ -21,10 +21,10 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# CORS configuratie voor frontend toegang (bijv. vanaf Vercel)
+# CORS configuratie voor frontend toegang vanaf Vercel
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In productie: vervang door specifieke origins
+    allow_origins=["https://song-scribe-api-flow.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
