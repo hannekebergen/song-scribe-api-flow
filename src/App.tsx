@@ -2,6 +2,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import useKeepAlive from "@/hooks/useKeepAlive";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AuthGate from "./components/AuthGate";
@@ -12,7 +13,10 @@ import OrderDetail from "./components/OrderDetail";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  useKeepAlive(); // houdt Render wakker
+  
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -30,6 +34,7 @@ const App = () => (
       </AuthGate>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
