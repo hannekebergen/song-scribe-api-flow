@@ -88,7 +88,7 @@ async def admin_fetch_orders(
     except PlugPayAPIError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/", include_in_schema=False, methods=["GET", "HEAD"])
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 async def root():
     return {"message": "Welkom bij de JouwSong.nl API"}
 
