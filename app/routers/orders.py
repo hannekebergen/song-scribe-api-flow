@@ -21,18 +21,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.options("/fetch")
-async def options_fetch_orders():
-    """
-    Handles OPTIONS preflight requests for the /fetch endpoint.
-    This is necessary for CORS when the request includes custom headers like X-API-Key.
-    
-    Returns:
-        Een lege 200 OK response met de juiste CORS headers
-    """
-    return JSONResponse(content={})
-
-
 @router.post("/fetch")
 async def fetch_orders(
     background_tasks: BackgroundTasks,
