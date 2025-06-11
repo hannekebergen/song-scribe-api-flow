@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import logging
 import os
 import time
+import asyncio
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # Configure logging level from environment variable
@@ -53,8 +54,12 @@ app.add_middleware(
 
 # Initialiseer de database bij het opstarten van de app
 @app.on_event("startup")
-def startup_db_client():
+async def startup_db_client():
     try:
+        # Korte vertraging om ervoor te zorgen dat de server volledig is opgestart
+        # voordat we health checks accepteren
+        await asyncio.sleep(2)  # 2 seconden wachten
+        
         init_db()
         logging.info("Database succesvol geïnitialiseerd")
     except Exception as e:

@@ -4,9 +4,19 @@ const API_ROOT = "https://song-scribe-api-flow.onrender.com";
 
 export default function useKeepAlive(intervalMs = 5 * 60 * 1000) {
   useEffect(() => {
-    const ping = () => fetch(API_ROOT + "/", { mode: "no-cors" }).catch(() => {});
-    ping();                              // ping direct bij mount
+    // Gebruik HEAD request in plaats van GET om payload te minimaliseren
+    const ping = () => fetch(API_ROOT + "/", { 
+      method: "HEAD",
+      mode: "no-cors" 
+    }).catch(() => {});
+    
+    // Ping direct bij mount
+    ping();
+    
+    // Periodieke ping elke 5 minuten (of zoals geconfigureerd)
     const id = setInterval(ping, intervalMs);
-    return () => clearInterval(id);      // opschonen bij unmount
+    
+    // Opschonen bij unmount
+    return () => clearInterval(id);
   }, [intervalMs]);
 }
