@@ -1,6 +1,5 @@
 {
   "rewrites": [
-    { "source": "/orders/:path*", "destination": "https://song-scribe-api-flow.onrender.com/orders/:path*" },
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/:match*", "destination": "/index.html" }
   ]
 }

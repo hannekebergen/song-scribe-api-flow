@@ -1,4 +1,4 @@
-const API = "https://song-scribe-api-flow.onrender.com";
+const API = import.meta.env.VITE_API_URL;
 
 /**
  * Eenvoudige functie om de backend te wekken met een enkele HEAD request.

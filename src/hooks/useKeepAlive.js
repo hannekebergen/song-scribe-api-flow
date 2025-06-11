@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const API_ROOT = "https://song-scribe-api-flow.onrender.com";
+const API_ROOT = import.meta.env.VITE_API_URL;
 
 export default function useKeepAlive(intervalMs = 5 * 60 * 1000) {
   useEffect(() => {

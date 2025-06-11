@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { wakeBackend } from '@/api/wakeBackend';
 
+const API = import.meta.env.VITE_API_URL;
+
 interface FetchResult {
   new_orders: number;
   skipped_orders: number;
@@ -32,7 +34,7 @@ const FetchOrdersCard = () => {
         setIsWakingBackend(false);
       }
       
-      const response = await fetch('https://song-scribe-api-flow.onrender.com/orders/fetch', {
+      const response = await fetch(`${API}/orders/fetch`, {
         method: 'POST',
         headers: {
           'X-API-Key': 'jouwsong2025',
