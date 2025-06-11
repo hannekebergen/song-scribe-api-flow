@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { wakeBackend } from '@/api/wakeBackend';
 
 interface FetchResult {
@@ -12,6 +12,7 @@ interface FetchResult {
 
 const FetchOrdersCard = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isWakingBackend, setIsWakingBackend] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FetchResult | null>(null);
 
@@ -22,7 +23,14 @@ const FetchOrdersCard = () => {
 
     try {
       // Wake backend before fetching orders to avoid cold-start 404
-      await wakeBackend();
+      setIsWakingBackend(true);
+      try {
+        await wakeBackend();
+      } catch (wakeError) {
+        throw new Error(`Backend wake-up mislukt: ${wakeError instanceof Error ? wakeError.message : 'Onbekende fout'}`);
+      } finally {
+        setIsWakingBackend(false);
+      }
       
       const response = await fetch('https://song-scribe-api-flow.onrender.com/orders/fetch', {
         method: 'POST',
@@ -67,7 +75,14 @@ const FetchOrdersCard = () => {
           {isLoading ? 'Bezig met ophalen...' : 'Haal nieuwe orders op'}
         </Button>
 
-        {isLoading && (
+        {isWakingBackend && (
+          <div className="flex items-center justify-center gap-2 text-center text-gray-600 p-4">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Backend wordt opgestart (max 30s)...</span>
+          </div>
+        )}
+
+        {isLoading && !isWakingBackend && (
           <div className="text-center text-gray-600 p-4">
             Bezig met ophalen...
           </div>
