@@ -52,6 +52,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Health check endpoint voor Render
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+
 # Initialiseer de database bij het opstarten van de app
 @app.on_event("startup")
 async def startup_db_client():
@@ -100,4 +105,6 @@ async def root_head():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Use PORT environment variable with fallback to 8000
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
