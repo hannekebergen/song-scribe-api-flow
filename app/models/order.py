@@ -22,7 +22,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     
     # Bestelling details
-    order_id = Column(String, unique=True, nullable=False, index=True)
+    order_id = Column(Integer, unique=True, nullable=False, index=True)
     klant_naam = Column(String, nullable=False)
     klant_email = Column(String, nullable=False)
     product_naam = Column(String, nullable=False)
