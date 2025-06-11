@@ -1,11 +1,10 @@
 import { useEffect } from "react";
-
-const API_ROOT = import.meta.env.VITE_API_URL;
+import { API } from "../api/config";
 
 export default function useKeepAlive(intervalMs = 5 * 60 * 1000) {
   useEffect(() => {
     // Gebruik HEAD request in plaats van GET om payload te minimaliseren
-    const ping = () => fetch(API_ROOT + "/", { 
+    const ping = () => fetch(API + "/", { 
       method: "HEAD",
       mode: "no-cors" 
     }).catch(() => {});

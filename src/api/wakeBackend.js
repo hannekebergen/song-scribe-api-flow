@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_URL;
+import { API } from './config';
 
 /**
  * Eenvoudige functie om de backend te wekken met een enkele HEAD request.

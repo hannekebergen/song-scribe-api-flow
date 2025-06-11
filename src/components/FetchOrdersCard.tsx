@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { wakeBackend } from '@/api/wakeBackend';
-
-const API = import.meta.env.VITE_API_URL;
+import { API } from '@/api/config';
 
 interface FetchResult {
   new_orders: number;
