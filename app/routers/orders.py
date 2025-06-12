@@ -97,7 +97,7 @@ async def get_all_orders_nested(db: Session = Depends(get_db), api_key: str = De
 
 @router.get("/{order_id}", response_model=OrderRead)
 def read_order(
-    order_id: int = Path(...),
+    order_id: int = Path(..., description="Plug&Pay order_id"),
     db: Session = Depends(get_db),
     x_api_key: str = Depends(get_api_key),
 ):

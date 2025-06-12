@@ -10,13 +10,13 @@ from app.models.order import Order
 
 def get_order(db: Session, order_id: int):
     """
-    Haalt een specifieke bestelling op uit de database op basis van het ID.
+    Haalt een specifieke bestelling op uit de database op basis van het Plug&Pay order_id.
     
     Args:
         db (Session): SQLAlchemy database sessie
-        order_id (int): ID van de bestelling
+        order_id (int): Plug&Pay order_id van de bestelling
         
     Returns:
         Order: De opgevraagde bestelling of None als deze niet bestaat
     """
-    return db.query(Order).filter(Order.id == order_id).first()
+    return db.query(Order).filter(Order.order_id == order_id).first()

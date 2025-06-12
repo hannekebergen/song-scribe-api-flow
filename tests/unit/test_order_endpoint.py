@@ -9,11 +9,11 @@ from unittest.mock import MagicMock, patch
 def mock_get_order(db, order_id):
     """Mock implementation of the get_order function."""
     # This simulates the database query logic without actual database access
-    if order_id == 1:
-        # Return a mock order for ID 1
+    if order_id == 12345:  # Now filtering by Plug&Pay order_id
+        # Return a mock order for Plug&Pay order_id 12345
         return {"id": 1, "order_id": 12345, "klant_naam": "Test Klant"}
     else:
-        # Return None for any other ID (simulating not found)
+        # Return None for any other order_id (simulating not found)
         return None
 
 
@@ -22,19 +22,19 @@ class TestOrderEndpoint(unittest.TestCase):
 
     def test_get_order_found(self):
         """Test retrieving an existing order."""
-        # Test with ID that should be found
-        result = mock_get_order(None, 1)
+        # Test with Plug&Pay order_id that should be found
+        result = mock_get_order(None, 12345)
         
         # Assert
         self.assertIsNotNone(result)
-        self.assertEqual(result["id"], 1)
-        self.assertEqual(result["order_id"], 12345)
+        self.assertEqual(result["id"], 1)  # Internal ID
+        self.assertEqual(result["order_id"], 12345)  # Plug&Pay order_id
         self.assertEqual(result["klant_naam"], "Test Klant")
         
     def test_get_order_not_found(self):
         """Test retrieving a non-existent order."""
-        # Test with ID that should not be found
-        result = mock_get_order(None, 999)
+        # Test with Plug&Pay order_id that should not be found
+        result = mock_get_order(None, 99999)
         
         # Assert
         self.assertIsNone(result)

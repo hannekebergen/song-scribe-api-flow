@@ -34,13 +34,16 @@ class TestOrderCrud(unittest.TestCase):
         # Setup
         mock_order = MagicMock()
         self.mock_filter.first.return_value = mock_order
+        plug_pay_order_id = 12920181
         
         # Execute
-        result = get_order(self.mock_db, 1)
+        result = get_order(self.mock_db, plug_pay_order_id)
         
         # Assert
         self.mock_db.query.assert_called_once_with(mock_order_class)
         self.mock_query.filter.assert_called_once()
+        # Verify we're filtering on order_id, not id
+        mock_order_class.order_id.__eq__.assert_called_once_with(plug_pay_order_id)
         self.assertEqual(result, mock_order)
         
     @patch('app.crud.order.Order', Order)
@@ -48,13 +51,16 @@ class TestOrderCrud(unittest.TestCase):
         """Test get_order when order doesn't exist."""
         # Setup
         self.mock_filter.first.return_value = None
+        non_existent_order_id = 999
         
         # Execute
-        result = get_order(self.mock_db, 999)
+        result = get_order(self.mock_db, non_existent_order_id)
         
         # Assert
         self.mock_db.query.assert_called_once_with(mock_order_class)
         self.mock_query.filter.assert_called_once()
+        # Verify we're filtering on order_id, not id
+        mock_order_class.order_id.__eq__.assert_called_once_with(non_existent_order_id)
         self.assertIsNone(result)
 
 
