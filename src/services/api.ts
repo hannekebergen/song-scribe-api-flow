@@ -34,46 +34,27 @@ export const ordersApi = {
    * GET /orders/orders - Fetch all orders
    * @returns Promise resolving to array of orders
    */
-  getOrders: async (): Promise<Order[]> => {
-    try {
-      // Wake the backend first to avoid cold-start issues
-      await wakeBackend();
-      
-      const response = await api.get('/orders/orders');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to fetch orders');
-    }
-  },
+  getOrders: () => api.get<Order[]>('/orders/orders').then(r => r.data),
 
   /**
    * GET /orders/:id - Get order details
    * @param orderId The ID of the order to fetch
-   * @returns Promise resolving to the order or null if not found
+   * @returns Promise resolving to the order
    */
-  getOrder: async (orderId: string): Promise<Order | null> => {
-    try {
-      const response = await api.get(`/orders/${orderId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching order:', error);
-      return null;
-    }
-  },
+  getOrder: (id: number) => api.get<Order>(`/orders/${id}`).then(r => r.data),
 
   /**
    * POST /orders/:id/regenerate - Regenerate prompt for an order
    * @param orderId The ID of the order to regenerate
-   * @returns Promise resolving to the updated order or null if failed
+   * @returns Promise resolving to the regenerated order
    */
-  regeneratePrompt: async (orderId: string): Promise<Order | null> => {
+  regeneratePrompt: async (orderId: string): Promise<Order> => {
     try {
-      const response = await api.post(`/orders/${orderId}/regenerate`);
+      const response = await api.post<Order>(`/orders/${orderId}/regenerate`);
       return response.data;
     } catch (error) {
       console.error('Error regenerating prompt:', error);
-      return null;
+      throw new Error(error instanceof Error ? error.message : 'Failed to regenerate prompt');
     }
   },
 
@@ -85,7 +66,7 @@ export const ordersApi = {
    */
   updateSongtext: async (orderId: string, songtekst: string): Promise<Order | null> => {
     try {
-      const response = await api.patch(`/orders/${orderId}`, { songtekst });
+      const response = await api.patch<Order>(`/orders/${orderId}`, { songtekst });
       return response.data;
     } catch (error) {
       console.error('Error updating songtext:', error);
@@ -101,7 +82,7 @@ export const ordersApi = {
    */
   downloadOrder: async (orderId: string, type: 'json' | 'txt'): Promise<string> => {
     try {
-      const response = await api.get(`/orders/${orderId}/download?type=${type}`);
+      const response = await api.get<string>(`/orders/${orderId}/download?type=${type}`);
       return response.data;
     } catch (error) {
       console.error('Error downloading order:', error);
@@ -113,12 +94,18 @@ export const ordersApi = {
    * POST /fetch - Fetch new orders from the payment provider
    * @returns Promise resolving to the fetch result
    */
+  fetchOrders: () => api.post<{result: OrdersFetchResult}>('/fetch'),
+  
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use fetchOrders instead
+   */
   syncOrders: async (): Promise<OrdersFetchResult> => {
     try {
       // Wake the backend first to avoid cold-start issues
       await wakeBackend();
       
-      const response = await api.post('/fetch');
+      const response = await api.post<{result: OrdersFetchResult}>('/fetch');
       return response.data.result;
     } catch (error) {
       console.error('Error syncing orders:', error);
