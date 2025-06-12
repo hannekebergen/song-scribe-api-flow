@@ -3,6 +3,9 @@ import { ordersApi } from '../src/services/api';
 import { wakeBackend } from '../src/api/wakeBackend';
 import axios from 'axios';
 
+// Add type declarations for vitest mocking
+type MockedFunction<T extends (...args: any) => any> = T & { mockResolvedValueOnce: any, mockRejectedValueOnce: any };
+
 // Mock dependencies
 vi.mock('axios');
 vi.mock('../src/api/wakeBackend', () => ({
@@ -36,7 +39,7 @@ describe('Orders API Service', () => {
   describe('getOrders', () => {
     it('should fetch orders successfully', async () => {
       // Setup mock response
-      const mockedAxios = axios as jest.Mocked<typeof axios>;
+      const mockedAxios = axios as any;
       mockedAxios.get = vi.fn().mockResolvedValueOnce({ data: mockOrders });
 
       // Call the function
@@ -46,7 +49,7 @@ describe('Orders API Service', () => {
       expect(wakeBackend).toHaveBeenCalledTimes(1);
 
       // Verify axios.get was called with correct parameters
-      expect(mockedAxios.get).toHaveBeenCalledWith('/orders');
+      expect(mockedAxios.get).toHaveBeenCalledWith('/orders/orders');
 
       // Verify the result matches our mock data
       expect(result).toEqual(mockOrders);
@@ -57,7 +60,7 @@ describe('Orders API Service', () => {
     it('should throw an error when the API call fails', async () => {
       // Setup mock error response
       const errorMessage = 'Network Error';
-      const mockedAxios = axios as jest.Mocked<typeof axios>;
+      const mockedAxios = axios as any;
       mockedAxios.get = vi.fn().mockRejectedValueOnce(new Error(errorMessage));
 
       // Verify that the function throws an error
@@ -67,7 +70,7 @@ describe('Orders API Service', () => {
       expect(wakeBackend).toHaveBeenCalledTimes(1);
 
       // Verify axios.get was called
-      expect(mockedAxios.get).toHaveBeenCalledWith('/orders');
+      expect(mockedAxios.get).toHaveBeenCalledWith('/orders/orders');
     });
   });
 
@@ -80,7 +83,7 @@ describe('Orders API Service', () => {
         orders: mockOrders
       };
       
-      const mockedAxios = axios as jest.Mocked<typeof axios>;
+      const mockedAxios = axios as any;
       mockedAxios.post = vi.fn().mockResolvedValueOnce({ 
         data: { 
           result: mockResult 
@@ -105,7 +108,7 @@ describe('Orders API Service', () => {
     it('should throw an error when the sync API call fails', async () => {
       // Setup mock error response
       const errorMessage = 'Network Error';
-      const mockedAxios = axios as jest.Mocked<typeof axios>;
+      const mockedAxios = axios as any;
       mockedAxios.post = vi.fn().mockRejectedValueOnce(new Error(errorMessage));
 
       // Verify that the function throws an error

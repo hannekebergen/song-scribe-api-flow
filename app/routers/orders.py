@@ -42,6 +42,15 @@ async def options_orders():
     response = Response(status_code=200)
     return response
 
+@router.options("/orders/orders")
+async def options_orders_orders():
+    """
+    Explicit OPTIONS handler for CORS preflight requests to /orders/orders.
+    Returns a 200 OK response with appropriate CORS headers.
+    """
+    response = Response(status_code=200)
+    return response
+
 @router.get("/orders", response_model=List[OrderRead])
 async def get_all_orders(db: Session = Depends(get_db), api_key: str = Depends(get_api_key)):
     """
@@ -57,6 +66,23 @@ async def get_all_orders(db: Session = Depends(get_db), api_key: str = Depends(g
         return orders
     except Exception as e:
         logger.error(f"Fout bij ophalen van bestellingen: {str(e)}")
+        raise HTTPException(status_code=500, detail="Er is een fout opgetreden bij het ophalen van bestellingen")
+
+@router.get("/orders/orders", response_model=List[OrderRead])
+async def get_all_orders_nested(db: Session = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Haalt alle bestellingen op uit de database (geneste route).
+    
+    Vereist API-key authenticatie.
+    
+    Returns:
+        Een lijst van alle bestellingen
+    """
+    try:
+        orders = db.query(Order).all()
+        return orders
+    except Exception as e:
+        logger.error(f"Fout bij ophalen van bestellingen (geneste route): {str(e)}")
         raise HTTPException(status_code=500, detail="Er is een fout opgetreden bij het ophalen van bestellingen")
 
 @router.post("/fetch")

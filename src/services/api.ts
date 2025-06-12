@@ -31,7 +31,7 @@ if (!import.meta.env.VITE_API_KEY) {
  */
 export const ordersApi = {
   /**
-   * GET /orders - Fetch all orders
+   * GET /orders/orders - Fetch all orders
    * @returns Promise resolving to array of orders
    */
   getOrders: async (): Promise<Order[]> => {
@@ -39,7 +39,7 @@ export const ordersApi = {
       // Wake the backend first to avoid cold-start issues
       await wakeBackend();
       
-      const response = await api.get('/orders');
+      const response = await api.get('/orders/orders');
       return response.data;
     } catch (error) {
       console.error('Error fetching orders:', error);
