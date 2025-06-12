@@ -4,25 +4,33 @@ import { Order } from '../types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 /**
  * Component for displaying a list of orders
  */
 export default function OrdersList() {
-  const { loading, error, orders, fetchOrders } = useFetchOrders();
+  const { loading, error, orders, syncResult, fetchOrders, syncOrders } = useFetchOrders();
   const [refreshing, setRefreshing] = useState(false);
+  const [syncingOrders, setSyncingOrders] = useState(false);
 
   useEffect(() => {
     // Fetch orders when component mounts
     fetchOrders();
   }, []);
 
-  // Handle refresh button click
+  // Handle refresh button click - fetches existing orders from the API
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchOrders();
     setRefreshing(false);
+  };
+  
+  // Handle sync button click - fetches new orders from the payment provider
+  const handleSyncOrders = async () => {
+    setSyncingOrders(true);
+    await syncOrders();
+    setSyncingOrders(false);
   };
 
   // Format date string to a more readable format
@@ -70,17 +78,35 @@ export default function OrdersList() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Bestellingen</CardTitle>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          <Loader2 className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Bezig...' : 'Haal nieuwe orders op'}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
+            disabled={refreshing || syncingOrders}
+          >
+            <Loader2 className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Bezig...' : 'Vernieuwen'}
+          </Button>
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={handleSyncOrders}
+            disabled={refreshing || syncingOrders}
+          >
+            <Loader2 className={`h-4 w-4 mr-2 ${syncingOrders ? 'animate-spin' : ''}`} />
+            {syncingOrders ? 'Bezig...' : 'Haal nieuwe orders op'}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
+        {syncResult && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-700">
+            <p className="text-sm font-medium">Orders succesvol opgehaald!</p>
+            <p className="text-xs">Nieuwe orders: {syncResult.new_orders}, Overgeslagen: {syncResult.skipped_orders}</p>
+          </div>
+        )}
+        
         {orders.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             Geen bestellingen gevonden.
