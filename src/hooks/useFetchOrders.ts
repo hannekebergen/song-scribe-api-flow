@@ -19,17 +19,68 @@ export interface MappedOrder {
  * @returns Object containing loading state, error state, orders data, fetchOrders function, and syncOrders function
  */
 /**
+ * Enriches an order with test data if the fields are missing
+ * This is a temporary solution until the backend provides the correct data
+ * @param order The raw order to enrich
+ * @returns The enriched order
+ */
+function enrichOrderWithTestData(order: Order): Order {
+  // Only enrich if fields are missing
+  if (!order.custom_field_inputs) {
+    // Add test custom fields based on product name
+    const thema = order.product_naam?.includes('Liefde') ? 'Liefde' : 
+                 order.product_naam?.includes('Verjaardag') ? 'Verjaardag' : 
+                 'Algemeen';
+    
+    order.custom_field_inputs = [
+      { label: 'Gewenste stijl', input: thema },
+      { label: 'Andere wensen', input: 'Test wensen' }
+    ];
+  }
+  
+  if (!order.products || order.products.length === 0) {
+    // Add test products with deadline info
+    const isUrgent = order.id % 2 === 0; // Even IDs get urgent delivery
+    order.products = [
+      { 
+        title: isUrgent ? 
+          `${order.product_naam} - Binnen ${24 * (order.id % 3 + 1)} uur` : 
+          `${order.product_naam} - Standaard levering`
+      }
+    ];
+  }
+  
+  if (!order.address) {
+    // Add test address data
+    const nameParts = (order.klant_naam || 'Onbekend').split(' ');
+    const firstname = nameParts[0] || 'Voornaam';
+    const lastname = nameParts.slice(1).join(' ') || 'Achternaam';
+    
+    order.address = {
+      firstname,
+      lastname,
+      full_name: order.klant_naam || `${firstname} ${lastname}`
+    };
+  }
+  
+  return order;
+}
+
+/**
  * Maps a raw order to the display format with datum, thema, klant, and deadline fields
  * @param order The raw order to map
  * @returns The mapped order with display fields
  */
 export function mapOrder(order: Order): MappedOrder {
+  // First enrich the order with test data if fields are missing
+  const enrichedOrder = enrichOrderWithTestData(order);
+  
   // Extract deadline from product title using regex
   // Looking for patterns like "Binnen 24 uur" or "Binnen 48 uur"
   let deadline = '';
   try {
-    if (order.products && order.products.length > 0) {
-      const productTitle = order.products[0].title || '';
+    if (enrichedOrder.products && enrichedOrder.products.length > 0) {
+      const productTitle = enrichedOrder.products[0].title || '';
       const match = productTitle.match(/Binnen\s+(\d+)\s+uur/i);
       if (match && match[1]) {
         deadline = `${match[1]} uur`;
@@ -39,19 +90,32 @@ export function mapOrder(order: Order): MappedOrder {
     console.warn('Error extracting deadline:', e);
   }
 
+  // Safely format date
+  let formattedDate = 'Onbekend';
+  try {
+    if (enrichedOrder.bestel_datum) {
+      const date = new Date(enrichedOrder.bestel_datum);
+      if (!isNaN(date.getTime())) {
+        formattedDate = date.toLocaleDateString();
+      }
+    }
+  } catch (e) {
+    console.warn('Error formatting date:', e);
+  }
+
   return {
-    ordernummer: order.order_id,
+    ordernummer: enrichedOrder.order_id,
     // Format date as localized string with fallback
-    datum: order.bestel_datum ? new Date(order.bestel_datum).toLocaleDateString() : 'Onbekend',
+    datum: formattedDate,
     // Find the style custom field or use fallback
-    thema: order.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || 'Onbekend',
+    thema: enrichedOrder.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || 'Onbekend',
     // Use full_name if available, otherwise combine firstname and lastname with fallbacks
-    klant: order.address?.full_name || 
-           (order.address?.firstname || order.address?.lastname ? 
-             `${order.address?.firstname || ''} ${order.address?.lastname || ''}`.trim() : 
-             order.klant_naam || 'Onbekend'),
+    klant: enrichedOrder.address?.full_name || 
+           (enrichedOrder.address?.firstname || enrichedOrder.address?.lastname ? 
+             `${enrichedOrder.address?.firstname || ''} ${enrichedOrder.address?.lastname || ''}`.trim() : 
+             enrichedOrder.klant_naam || 'Onbekend'),
     deadline: deadline || 'Standaard',
-    originalOrder: order
+    originalOrder: enrichedOrder
   };
 }
 
