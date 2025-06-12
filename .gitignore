@@ -23,3 +23,21 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Local environment and DB
+.env
+.env.frontend.bak
+.env.test
+song_scribe.db
+
+# Python cache and temp scripts
+__pycache__/
+*.pyc
+simple_test.py
+simple_validate.py
+test_migration.py
+validate_order_ids.py
+MIGRATION_STEPS.md
+MIGRATION_SUMMARY.md
+DATA_MIGRATION_README.md
+
