@@ -51,7 +51,7 @@ def run_migrations():
         # Voer de migratie uit
         command.upgrade(alembic_cfg, "head")
         
-        print("✅ Alembic migrations applied successfully.")
+        print("[SUCCESS] Alembic migrations applied successfully.")
     except Exception as e:
         logger.error(f"Error during migration: {e}")
         raise
