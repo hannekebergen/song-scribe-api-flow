@@ -71,6 +71,7 @@ def get_recent_orders():
         
         # Parse de JSON-response
         orders = response.json()
+        logger.debug("Raw Plug&Pay orders response: %s", orders)
         logger.info(f"Succesvol {len(orders.get('data', []))} bestellingen opgehaald van Plug&Pay API")
         
         return orders
@@ -165,6 +166,7 @@ def fetch_and_store_recent_orders(db_session: Session):
         
         # Verwerk elke bestelling
         for order in orders:
+            logger.debug("Raw Plug&Pay order: %s", order)
             order_id = order.get("id")
             if not order_id:
                 logger.warning("Bestelling zonder ID overgeslagen")

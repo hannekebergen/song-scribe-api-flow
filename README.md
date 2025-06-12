@@ -79,6 +79,23 @@ VITE_API_URL=https://jouwsong-api.onrender.com
 
 The `.env` file is included in `.gitignore` to prevent committing sensitive information to the repository.
 
+### Debugging
+
+#### Viewing Raw API Responses
+
+To view raw JSON responses from external APIs (like Plug&Pay):
+
+1. Set the `LOG_LEVEL` environment variable to `DEBUG` in your `.env` file:
+   ```
+   LOG_LEVEL=DEBUG
+   ```
+
+2. Restart the application to apply the new log level.
+
+3. When the application makes API calls, the raw JSON responses will be logged to the console or log files.
+
+4. For production deployments on Render, you can set the `LOG_LEVEL` environment variable in the Render dashboard under Environment Variables.
+
 ## What technologies are used for this project?
 
 This project is built with:
