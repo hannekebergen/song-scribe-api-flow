@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Order, OrdersFetchResult } from '../types';
+import { Order } from '../types';
 
 /**
  * Custom hook for fetching orders from the API
@@ -14,7 +14,7 @@ export function useFetchOrders() {
    * Fetches orders from the API
    * @returns Promise resolving to the fetched orders data
    */
-  const fetchOrders = async (): Promise<OrdersFetchResult | null> => {
+  const fetchOrders = async (): Promise<Order[] | null> => {
     const apiUrl = import.meta.env.VITE_API_URL;
     const apiKey = import.meta.env.VITE_API_KEY;
 
@@ -28,8 +28,9 @@ export function useFetchOrders() {
     setError(null);
 
     try {
-      const response = await fetch(`${apiUrl}/orders/fetch`, {
-        method: 'POST',
+      // Fetch orders from the /orders endpoint
+      const response = await fetch(`${apiUrl}/orders`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': apiKey
@@ -40,8 +41,8 @@ export function useFetchOrders() {
         throw new Error(`API error: ${response.status} ${response.statusText}`);
       }
 
-      const data: OrdersFetchResult = await response.json();
-      setOrders(data.orders);
+      const data: Order[] = await response.json();
+      setOrders(data);
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
