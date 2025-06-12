@@ -8,6 +8,13 @@ export interface Order {
   klant_email: string | null;
   product_naam: string;
   bestel_datum: string;
+  custom_field_inputs: Array<{ label: string; input: string }>;
+  products: Array<{ title: string }>;
+  address?: {
+    full_name?: string;
+    firstname?: string;
+    lastname?: string;
+  };
 }
 
 /**

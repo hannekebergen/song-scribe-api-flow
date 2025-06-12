@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useFetchOrders } from '../hooks/useFetchOrders';
+import { useFetchOrders, MappedOrder } from '../hooks/useFetchOrders';
 import { useOrder } from '../hooks/useOrder';
 import { Order } from '../types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -97,7 +97,7 @@ function OrderDetailModal({ isOpen, onClose, orderId }: OrderDetailModalProps) {
  * Component for displaying a list of orders
  */
 export default function OrdersList() {
-  const { loading, error, orders, syncResult, fetchOrders, syncOrders } = useFetchOrders();
+  const { loading, error, orders, mappedOrders, syncResult, fetchOrders, syncOrders } = useFetchOrders();
   const [refreshing, setRefreshing] = useState(false);
   const [syncingOrders, setSyncingOrders] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
@@ -204,31 +204,33 @@ export default function OrdersList() {
           ) : (
             <>
               <div className="text-sm text-muted-foreground mb-4">
-                Totaal aantal bestellingen: {orders.length}
+                Totaal aantal bestellingen: {mappedOrders.length}
               </div>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order-ID</TableHead>
-                    <TableHead>Klant</TableHead>
-                    <TableHead>Product</TableHead>
+                    <TableHead>Ordernummer</TableHead>
                     <TableHead>Datum</TableHead>
+                    <TableHead>Thema</TableHead>
+                    <TableHead>Klant</TableHead>
+                    <TableHead>Deadline</TableHead>
                     <TableHead>Actie</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders.map((order: Order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono">{order.order_id}</TableCell>
-                      <TableCell>{order.klant_naam || 'Onbekend'}</TableCell>
-                      <TableCell>{order.product_naam}</TableCell>
-                      <TableCell>{formatDate(order.bestel_datum)}</TableCell>
+                  {mappedOrders.map((row: MappedOrder) => (
+                    <TableRow key={row.originalOrder.id}>
+                      <TableCell className="font-mono">{row.ordernummer}</TableCell>
+                      <TableCell>{row.datum}</TableCell>
+                      <TableCell>{row.thema}</TableCell>
+                      <TableCell>{row.klant}</TableCell>
+                      <TableCell>{row.deadline}</TableCell>
                       <TableCell>
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => {
-                            setSelectedOrderId(order.id);
+                            setSelectedOrderId(row.originalOrder.id);
                             setIsModalOpen(true);
                           }}
                         >

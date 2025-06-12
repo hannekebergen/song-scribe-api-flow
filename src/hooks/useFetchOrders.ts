@@ -3,13 +3,63 @@ import { Order, OrdersFetchResult } from '../types';
 import { ordersApi } from '../services/api';
 
 /**
+ * Interface for mapped order data with specific display fields
+ */
+export interface MappedOrder {
+  ordernummer: number;
+  datum: string;
+  thema: string;
+  klant: string;
+  deadline: string;
+  originalOrder: Order; // Keep reference to original order
+}
+
+/**
  * Custom hook for fetching orders from the API
  * @returns Object containing loading state, error state, orders data, fetchOrders function, and syncOrders function
  */
+/**
+ * Maps a raw order to the display format with datum, thema, klant, and deadline fields
+ * @param order The raw order to map
+ * @returns The mapped order with display fields
+ */
+export function mapOrder(order: Order): MappedOrder {
+  // Extract deadline from product title using regex
+  // Looking for patterns like "Binnen 24 uur" or "Binnen 48 uur"
+  let deadline = '';
+  try {
+    if (order.products && order.products.length > 0) {
+      const productTitle = order.products[0].title || '';
+      const match = productTitle.match(/Binnen\s+(\d+)\s+uur/i);
+      if (match && match[1]) {
+        deadline = `${match[1]} uur`;
+      }
+    }
+  } catch (e) {
+    console.warn('Error extracting deadline:', e);
+  }
+
+  return {
+    ordernummer: order.order_id,
+    // Format date as localized string with fallback
+    datum: order.bestel_datum ? new Date(order.bestel_datum).toLocaleDateString() : 'Onbekend',
+    // Find the style custom field or use fallback
+    thema: order.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || 'Onbekend',
+    // Use full_name if available, otherwise combine firstname and lastname with fallbacks
+    klant: order.address?.full_name || 
+           (order.address?.firstname || order.address?.lastname ? 
+             `${order.address?.firstname || ''} ${order.address?.lastname || ''}`.trim() : 
+             order.klant_naam || 'Onbekend'),
+    deadline: deadline || 'Standaard',
+    originalOrder: order
+  };
+}
+
 export function useFetchOrders() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [mappedOrders, setMappedOrders] = useState<MappedOrder[]>([]);
   const [syncResult, setSyncResult] = useState<OrdersFetchResult | null>(null);
 
   /**
@@ -24,6 +74,11 @@ export function useFetchOrders() {
       // Use the ordersApi service to fetch orders
       const data = await ordersApi.getOrders();
       setOrders(data);
+      
+      // Map the raw orders to the display format
+      const mapped = data.map(mapOrder);
+      setMappedOrders(mapped);
+      
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -65,8 +120,10 @@ export function useFetchOrders() {
     loading,
     error,
     orders,
+    mappedOrders,
     syncResult,
     fetchOrders,
-    syncOrders
+    syncOrders,
+    mapOrder // Export the mapping function for direct use if needed
   };
 }
