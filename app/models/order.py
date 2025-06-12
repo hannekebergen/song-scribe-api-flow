@@ -71,13 +71,14 @@ class Order(Base):
             if not order_data.get("id"):
                 raise ValueError("Bestelling heeft geen order_id")
             
-            if not customer.get("name"):
-                raise ValueError("Bestelling heeft geen klantnaam")
+            # Verwijderd: validatie op klantnaam (nu nullable)
+            # if not customer.get("name"):
+            #     raise ValueError("Bestelling heeft geen klantnaam")
             
             # Maak een nieuw Order object aan
             new_order = cls(
                 order_id=order_data.get("id"),
-                klant_naam=customer.get("name", "Onbekend"),
+                klant_naam=customer.get("name"),  # Kan None zijn
                 klant_email=customer.get("email", "onbekend@example.com"),
                 product_naam=products[0].get("name", "Onbekend product") if products else "Onbekend product",
                 bestel_datum=datetime.fromisoformat(order_data.get("created_at").replace("Z", "+00:00")) 
