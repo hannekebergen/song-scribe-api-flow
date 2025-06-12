@@ -2,15 +2,16 @@
 Database session management voor PostgreSQL via SQLAlchemy.
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
+print("DEBUG: DATABASE_URL =", os.getenv("DATABASE_URL"))
+
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-
-# Laad environment variables
-load_dotenv()
 
 # Configureer logging
 logger = logging.getLogger(__name__)
@@ -18,10 +19,8 @@ logger = logging.getLogger(__name__)
 # Haal de database URL op uit environment variables
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    logger.warning("DATABASE_URL environment variable is niet geconfigureerd")
-    # Fallback naar een SQLite database voor ontwikkeling
-    DATABASE_URL = "sqlite:///./song_scribe.db"
-    logger.info(f"Fallback naar lokale SQLite database: {DATABASE_URL}")
+    logger.error("DATABASE_URL environment variable is niet geconfigureerd. Postgres-verbinding vereist.")
+    raise ValueError("DATABASE_URL environment variable is niet geconfigureerd")
 
 # Maak de SQLAlchemy engine aan
 engine = create_engine(
