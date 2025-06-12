@@ -137,16 +137,25 @@ export function useFetchOrders() {
     try {
       // Use the ordersApi service to fetch orders
       const data = await ordersApi.getOrders();
-      setOrders(data);
       
-      // Map the raw orders to the display format
-      const mapped = data.map(mapOrder);
+      // Enrich the orders with test data if fields are missing
+      const enrichedData = data.map(order => enrichOrderWithTestData({...order}));
+      
+      // Store the enriched orders
+      setOrders(enrichedData);
+      
+      // Map the enriched orders to the display format
+      const mapped = enrichedData.map(mapOrder);
       setMappedOrders(mapped);
       
-      return data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
+      // Log the enriched data for debugging
+      console.log('Enriched orders:', enrichedData);
+      console.log('Mapped orders:', mapped);
+
+      return enrichedData;
+    } catch (error: any) {
+      console.error('Error fetching orders:', error);
+      setError(error?.message || 'Er is een fout opgetreden bij het ophalen van de bestellingen');
       return null;
     } finally {
       setLoading(false);
