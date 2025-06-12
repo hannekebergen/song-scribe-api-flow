@@ -50,6 +50,35 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## Environment Setup
+
+This project requires specific environment variables for both the backend and frontend to function properly. Since this is a monorepo with both backend and frontend in the same repository, all environment variables are combined in a single `.env` file.
+
+### Environment Variables (.env)
+
+Create a `.env` file in the project root (where main.py and vite.config.ts are located) with the following content:
+
+```
+# Backend variables
+DATABASE_URL=postgresql://postgres:Drijfveer123!@localhost:5432/song_scribe_local
+API_KEY=jouwsong2025
+LOG_LEVEL=INFO
+PLUGPAY_API_KEY=<vul-zaak-specifieke-waarde-in>
+PLUGPAY_SECRET=<vul-zaak-specifieke-waarde-in>
+
+# Frontend variables
+VITE_API_URL=https://jouwsong-api.onrender.com
+```
+
+### Configuration Check
+
+- Backend: The project uses `python-dotenv` to load environment variables via `load_dotenv()` in various files including `main.py`, `app/db/session.py`, and `app/auth/token.py`.
+- Frontend: The Vite configuration uses `loadEnv` to load environment variables, making them available via `import.meta.env.VITE_API_URL`.
+
+### Security Note
+
+The `.env` file is included in `.gitignore` to prevent committing sensitive information to the repository.
+
 ## What technologies are used for this project?
 
 This project is built with:
