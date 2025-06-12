@@ -7,43 +7,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ordersApi, Order } from '@/services/api';
+import { useFetchOrders, MappedOrder } from '../hooks/useFetchOrders';
 import FetchOrdersCard from './FetchOrdersCard';
 
 const Dashboard = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Gebruik de useFetchOrders hook in plaats van direct ordersApi aan te roepen
+  const { mappedOrders, loading: ordersLoading, fetchOrders } = useFetchOrders();
+  const [filteredOrders, setFilteredOrders] = useState<MappedOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [themaFilter, setThemaFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    loadOrders();
+    // Haal orders op bij het laden van de component
+    fetchOrders();
   }, []);
 
   useEffect(() => {
     filterOrders();
-  }, [orders, searchTerm, themaFilter, statusFilter]);
-
-  const loadOrders = async () => {
-    try {
-      const data = await ordersApi.getOrders();
-      setOrders(data);
-    } catch (error) {
-      console.error('Error loading orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [mappedOrders, searchTerm, themaFilter, statusFilter]);
 
   const filterOrders = () => {
-    let filtered = orders;
+    // Zorg ervoor dat we altijd met een array werken, zelfs als mappedOrders undefined is
+    const safeOrders = Array.isArray(mappedOrders) ? mappedOrders : [];
+    let filtered = safeOrders;
 
-    // Zoek op voornaam
+    // Zoek op klantnaam
     if (searchTerm) {
       filtered = filtered.filter(order =>
-        order.voornaam.toLowerCase().includes(searchTerm.toLowerCase())
+        order.klant.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -52,27 +44,28 @@ const Dashboard = () => {
       filtered = filtered.filter(order => order.thema === themaFilter);
     }
 
-    // Filter op status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(order => order.status === statusFilter);
-    }
+    // Filter op status (niet beschikbaar in mappedOrders, dus overslaan)
+    // We kunnen later status toevoegen aan de MappedOrder interface indien nodig
 
     setFilteredOrders(filtered);
   };
 
-  const getStatusBadge = (status: string) => {
-    return status === 'nieuw' ? (
-      <Badge variant="outline">Nieuw</Badge>
+  const getStatusBadge = (deadline: string) => {
+    // Gebruik deadline als indicator voor urgentie/status
+    return deadline.includes('uur') ? (
+      <Badge variant="outline">Spoed</Badge>
     ) : (
-      <Badge variant="default">Gegenereerd</Badge>
+      <Badge variant="default">Standaard</Badge>
     );
   };
 
   const getUniqueThemas = () => {
-    return [...new Set(orders.map(order => order.thema))];
+    // Zorg ervoor dat we altijd met een array werken
+    const safeOrders = Array.isArray(mappedOrders) ? mappedOrders : [];
+    return [...new Set(safeOrders.map(order => order.thema))];
   };
 
-  if (loading) {
+  if (ordersLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Orders laden...</div>
@@ -85,7 +78,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">JouwSong Dashboard</h1>
         <div className="text-sm text-muted-foreground">
-          {filteredOrders.length} van {orders.length} orders
+          {filteredOrders.length} van {mappedOrders?.length || 0} orders
         </div>
       </div>
 
@@ -105,11 +98,11 @@ const Dashboard = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Zoek op voornaam</label>
+                  <label className="text-sm font-medium">Zoek op klantnaam</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Voornaam..."
+                      placeholder="Klantnaam..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
@@ -177,24 +170,24 @@ const Dashboard = () => {
                 <TableHead>Ordernummer</TableHead>
                 <TableHead>Datum</TableHead>
                 <TableHead>Thema</TableHead>
-                <TableHead>Voornaam</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Klant</TableHead>
+                <TableHead>Deadline</TableHead>
                 <TableHead>Acties</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredOrders.map((order) => (
-                <TableRow key={order.order_id}>
-                  <TableCell className="font-mono">{order.order_id}</TableCell>
-                  <TableCell>{new Date(order.datum).toLocaleDateString('nl-NL')}</TableCell>
+                <TableRow key={order.originalOrder.id}>
+                  <TableCell className="font-mono">{order.ordernummer}</TableCell>
+                  <TableCell>{order.datum}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{order.thema}</Badge>
                   </TableCell>
-                  <TableCell className="font-medium">{order.voornaam}</TableCell>
-                  <TableCell>{getStatusBadge(order.status)}</TableCell>
+                  <TableCell className="font-medium">{order.klant}</TableCell>
+                  <TableCell>{getStatusBadge(order.deadline)}</TableCell>
                   <TableCell>
                     <Button asChild variant="outline" size="sm">
-                      <Link to={`/orders/${order.order_id}`}>
+                      <Link to={`/orders/${order.ordernummer}`}>
                         <Eye className="h-4 w-4 mr-2" />
                         Bekijk
                       </Link>
