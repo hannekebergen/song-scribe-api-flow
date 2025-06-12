@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 class SongRequest(BaseModel):
     """
@@ -11,8 +11,21 @@ class SongRequest(BaseModel):
     stijl: str = Field(..., description="Stijl van het lied (bijv. 'Verjaardag', 'Liefde')")
     extra_wens: Optional[str] = Field(None, description="Extra wensen voor het lied")
 
+# Alias voor SongRequest om backward compatibility te behouden
+class SongPromptRequest(SongRequest):
+    """Alias voor SongRequest voor backward compatibility"""
+    pass
+
 class PromptResponse(BaseModel):
     """
     Schema voor de gegenereerde prompt als respons.
     """
     prompt: str = Field(..., description="Gegenereerde prompt voor AI-model")
+
+# Alias voor PromptResponse om backward compatibility te behouden
+class SongPromptResponse(PromptResponse):
+    """Alias voor PromptResponse voor backward compatibility"""
+    pass
+
+# Exporteer alle modellen
+__all__ = ['SongRequest', 'SongPromptRequest', 'PromptResponse', 'SongPromptResponse']
