@@ -23,7 +23,7 @@ class Order(Base):
     
     # Bestelling details
     order_id = Column(Integer, unique=True, nullable=False, index=True)
-    klant_naam = Column(String, nullable=False)
+    klant_naam = Column(String, nullable=True)
     klant_email = Column(String, nullable=False)
     product_naam = Column(String, nullable=False)
     bestel_datum = Column(DateTime, default=datetime.utcnow)
