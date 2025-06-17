@@ -118,7 +118,7 @@ def read_order(
         x_api_key: API key voor authenticatie
         
     Returns:
-        De opgevraagde bestelling
+        De opgevraagde bestelling met alle custom fields
         
     Raises:
         HTTPException: Als de bestelling niet gevonden wordt (404)
@@ -126,6 +126,118 @@ def read_order(
     order = crud.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order niet gevonden")
+    
+    # Voeg custom fields toe aan het order object voor de frontend
+    # Deze functie verwerkt zowel oude (name/value) als nieuwe (label/input) formats
+    if order.raw_data:
+        # Dictionary om custom fields op te slaan
+        custom_fields = {}
+        
+        # Functie om custom fields te extraheren uit verschillende formaten
+        def extract_custom_fields(fields_array, field_format="old"):
+            if not isinstance(fields_array, list):
+                return {}
+                
+            extracted = {}
+            for field in fields_array:
+                if not isinstance(field, dict):
+                    continue
+                    
+                # Oude format: name/value
+                if field_format == "old" and "name" in field and "value" in field:
+                    extracted[field["name"]] = field["value"]
+                # Nieuwe format: label/input
+                elif field_format == "new" and "label" in field and "input" in field:
+                    extracted[field["label"]] = field["input"]
+                    
+            return extracted
+        
+        # Probeer custom_field_inputs (oude format)
+        if "custom_field_inputs" in order.raw_data:
+            old_format = extract_custom_fields(order.raw_data["custom_field_inputs"], "old")
+            custom_fields.update(old_format)
+        
+        # Probeer custom_fields (nieuwe format)
+        if "custom_fields" in order.raw_data:
+            new_format = extract_custom_fields(order.raw_data["custom_fields"], "new")
+            custom_fields.update(new_format)
+            
+        # Probeer product-level custom fields
+        if "products" in order.raw_data and isinstance(order.raw_data["products"], list):
+            for product in order.raw_data["products"]:
+                # Oude format in product
+                if "custom_field_inputs" in product:
+                    product_old = extract_custom_fields(product["custom_field_inputs"], "old")
+                    custom_fields.update(product_old)
+                    
+                # Nieuwe format in product
+                if "custom_fields" in product:
+                    product_new = extract_custom_fields(product["custom_fields"], "new")
+                    custom_fields.update(product_new)
+        
+        # Voeg persoonlijk verhaal toe uit address.note als het bestaat
+        if "address" in order.raw_data and order.raw_data["address"] and "note" in order.raw_data["address"]:
+            note = order.raw_data["address"]["note"]
+            if note and len(note.strip()) > 0:
+                custom_fields["Beschrijf"] = note
+        
+        # Map custom fields naar specifieke velden in het order object
+        # Gebruik een mapping van mogelijke veldnamen naar attributen
+        field_mapping = {
+            # Voornaam varianten
+            "Voornaam": "voornaam",
+            "Voor wie is het lied?": "voornaam",
+            "Voor wie": "voornaam",
+            
+            # Achternaam varianten
+            "Achternaam": "van_naam",
+            "Van": "van_naam",
+            
+            # Relatie varianten
+            "Relatie": "relatie",
+            "Wat is je relatie tot deze persoon?": "relatie",
+            
+            # Datum varianten
+            "Datum": "datum",
+            "Wanneer": "datum",
+            "Wanneer is het lied nodig?": "datum",
+            "Deadline": "datum",
+            
+            # Thema varianten
+            "Thema": "thema",
+            "Gelegenheid": "thema",
+            
+            # Toon varianten
+            "Toon": "toon",
+            "Gewenste toon": "toon",
+            "Stijl": "toon",
+            
+            # Structuur varianten
+            "Structuur": "structuur",
+            "Opbouw": "structuur",
+            
+            # Rijm varianten
+            "Rijm": "rijm",
+            "Rijmschema": "rijm",
+            
+            # Beschrijving varianten
+            "Beschrijf": "beschrijving",
+            "Persoonlijk verhaal": "beschrijving",
+            "Vertel iets over deze persoon": "beschrijving",
+            "Toelichting": "beschrijving",
+        }
+        
+        # Wijs custom fields toe aan order attributen
+        for field_name, field_value in custom_fields.items():
+            # Check of dit veld in onze mapping staat
+            if field_name in field_mapping:
+                attr_name = field_mapping[field_name]
+                setattr(order, attr_name, field_value)
+                logger.debug(f"Order {order_id}: Custom field '{field_name}' toegewezen aan '{attr_name}'")
+        
+        # Log resultaat
+        logger.info(f"Order {order_id}: {len(custom_fields)} custom fields verwerkt")
+    
     return order
 
 @router.post("/fetch")

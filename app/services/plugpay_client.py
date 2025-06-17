@@ -90,9 +90,10 @@ def get_custom_fields(order_data, api_headers=None):
     """
     Haalt custom fields op uit order data met een robuuste fallback-strategie.
     Probeert achtereenvolgens de volgende bronnen:
-    1. order["custom_field_inputs"]
-    2. Eerste product["custom_field_inputs"] (indien beschikbaar)
-    3. Fallback naar GET /v1/checkouts/:checkout_id?include=custom_field_inputs
+    1. order["custom_field_inputs"] (oude format met name/value)
+    2. order["custom_fields"] (nieuwe format met label/input)
+    3. Product-level custom fields (zowel oude als nieuwe format)
+    4. Fallback naar GET /v1/checkouts/:checkout_id?include=custom_field_inputs
     
     Args:
         order_data (dict): De order data waaruit custom fields geëxtraheerd moeten worden
@@ -106,25 +107,57 @@ def get_custom_fields(order_data, api_headers=None):
     source_path = None
     order_id = order_data.get("id", "onbekend")
     
-    # Stap 1: Probeer root-level custom fields
-    if isinstance(order_data.get("custom_field_inputs"), list) and order_data.get("custom_field_inputs"):
-        logger.debug(f"Order {order_id}: Root-level custom fields gevonden")
-        source_path = "root"
-        # Verwerk alle custom fields in een dictionary
-        for field in order_data.get("custom_field_inputs", []):
-            if isinstance(field, dict) and "name" in field and "value" in field:
-                result[field["name"]] = field["value"]
+    # Helper functie om fields te extraheren uit een array, ondersteunt beide formats
+    def extract_fields_from_array(fields_array, source_name):
+        extracted = {}
+        if isinstance(fields_array, list) and fields_array:
+            logger.debug(f"Order {order_id}: {source_name} custom fields gevonden")
+            for field in fields_array:
+                if isinstance(field, dict):
+                    # Oude format: name/value
+                    if "name" in field and "value" in field:
+                        extracted[field["name"]] = field["value"]
+                        logger.debug(f"Order {order_id}: Oude format field gevonden: {field['name']}")
+                    # Nieuwe format: label/input
+                    elif "label" in field and "input" in field:
+                        extracted[field["label"]] = field["input"]
+                        logger.debug(f"Order {order_id}: Nieuwe format field gevonden: {field['label']}")
+        return extracted
     
-    # Stap 2: Als er geen root-level fields zijn, probeer fields uit het eerste product
-    if not result and order_data.get("products") and len(order_data.get("products", [])) > 0:
-        first_product = order_data.get("products")[0]
-        if isinstance(first_product.get("custom_field_inputs"), list) and first_product.get("custom_field_inputs"):
-            logger.debug(f"Order {order_id}: Product-level custom fields gevonden")
-            source_path = "product"
-            # Verwerk alle custom fields in een dictionary
-            for field in first_product.get("custom_field_inputs", []):
-                if isinstance(field, dict) and "name" in field and "value" in field:
-                    result[field["name"]] = field["value"]
+    # Stap 1: Probeer root-level custom fields in beide formats
+    # 1.1: Oude format: custom_field_inputs met name/value
+    root_fields = extract_fields_from_array(order_data.get("custom_field_inputs", []), "Root-level (oude format)")
+    if root_fields:
+        result.update(root_fields)
+        source_path = "root_old_format"
+    
+    # 1.2: Nieuwe format: custom_fields met label/input
+    root_fields_new = extract_fields_from_array(order_data.get("custom_fields", []), "Root-level (nieuwe format)")
+    if root_fields_new:
+        result.update(root_fields_new)
+        source_path = source_path or "root_new_format"
+    
+    # Stap 2: Als er nog geen of onvoldoende fields zijn, probeer alle producten
+    if not result or len(result) < 3:  # Als er minder dan 3 velden zijn, zoek verder
+        if order_data.get("products") and isinstance(order_data.get("products"), list):
+            for i, product in enumerate(order_data.get("products")):
+                # 2.1: Oude format in product
+                product_fields = extract_fields_from_array(
+                    product.get("custom_field_inputs", []), 
+                    f"Product {i+1} (oude format)"
+                )
+                if product_fields:
+                    result.update(product_fields)
+                    source_path = source_path or "product_old_format"
+                
+                # 2.2: Nieuwe format in product
+                product_fields_new = extract_fields_from_array(
+                    product.get("custom_fields", []), 
+                    f"Product {i+1} (nieuwe format)"
+                )
+                if product_fields_new:
+                    result.update(product_fields_new)
+                    source_path = source_path or "product_new_format"
     
     # Stap 3: Als er nog steeds geen fields zijn, probeer de checkout endpoint
     if not result and "checkout_id" in order_data:
@@ -145,21 +178,33 @@ def get_custom_fields(order_data, api_headers=None):
         
         try:
             # Doe een GET-call naar de checkout endpoint
-            checkout_url = f"https://api.plugandpay.nl/v1/checkouts/{checkout_id}?include=custom_field_inputs"
+            checkout_url = f"https://api.plugandpay.nl/v1/checkouts/{checkout_id}?include=custom_field_inputs,custom_fields"
             checkout_response = requests.get(checkout_url, headers=api_headers)
             checkout_response.raise_for_status()
             checkout_data = checkout_response.json()
             
-            # Controleer of er custom fields in de checkout data zitten
-            if isinstance(checkout_data.get("custom_field_inputs"), list) and checkout_data.get("custom_field_inputs"):
-                source_path = "checkout"
-                logger.info(f"Order {order_id}: In checkout-fallback custom fields gevonden")
-                # Verwerk alle custom fields in een dictionary
-                for field in checkout_data.get("custom_field_inputs", []):
-                    if isinstance(field, dict) and "name" in field and "value" in field:
-                        result[field["name"]] = field["value"]
-            else:
+            # Controleer of er custom fields in de checkout data zitten (beide formats)
+            checkout_fields = extract_fields_from_array(
+                checkout_data.get("custom_field_inputs", []), 
+                "Checkout (oude format)"
+            )
+            if checkout_fields:
+                result.update(checkout_fields)
+                source_path = "checkout_old_format"
+                logger.info(f"Order {order_id}: In checkout-fallback custom fields gevonden (oude format)")
+            
+            checkout_fields_new = extract_fields_from_array(
+                checkout_data.get("custom_fields", []), 
+                "Checkout (nieuwe format)"
+            )
+            if checkout_fields_new:
+                result.update(checkout_fields_new)
+                source_path = source_path or "checkout_new_format"
+                logger.info(f"Order {order_id}: In checkout-fallback custom fields gevonden (nieuwe format)")
+                
+            if not checkout_fields and not checkout_fields_new:
                 logger.info(f"Order {order_id}: Geen custom fields in checkout fallback")
+                
         except requests.exceptions.HTTPError as e:
             # Specifieke afhandeling voor 422-fout
             if e.response.status_code == 422:
@@ -169,6 +214,14 @@ def get_custom_fields(order_data, api_headers=None):
         except Exception as e:
             # Log de fout, maar laat de functie doorgaan
             logger.warning(f"Order {order_id}: Fout bij ophalen checkout data: {str(e)}")
+    
+    # Stap 4: Probeer persoonlijk verhaal uit address.note als laatste redmiddel
+    if not result.get("Beschrijf") and order_data.get("address") and order_data.get("address", {}).get("note"):
+        note = order_data.get("address", {}).get("note")
+        if note and len(note.strip()) > 0:
+            result["Beschrijf"] = note
+            logger.info(f"Order {order_id}: Persoonlijk verhaal gevonden in address.note")
+            source_path = source_path or "address_note"
     
     # Log het resultaat
     if result:
@@ -197,8 +250,8 @@ def get_order_details(order_id):
         # Haal de API-key op
         api_key = get_api_key()
         
-        # Definieer de API-endpoint
-        url = f"https://api.plugandpay.nl/v1/orders/{order_id}"
+        # Definieer de API-endpoint met expliciete include parameters voor zowel oude als nieuwe format custom fields
+        url = f"https://api.plugandpay.nl/v1/orders/{order_id}?include=custom_field_inputs,custom_fields,products.custom_field_inputs,products.custom_fields,address"
         
         # Stel de headers in met de Bearer token
         headers = {
@@ -207,7 +260,7 @@ def get_order_details(order_id):
         }
         
         # Doe het GET-verzoek
-        logger.info(f"Ophalen van details voor bestelling {order_id}")
+        logger.info(f"Ophalen van details voor bestelling {order_id} met alle custom fields")
         response = requests.get(url, headers=headers)
         
         # Controleer of het verzoek succesvol was
@@ -216,22 +269,12 @@ def get_order_details(order_id):
         # Parse de JSON-response
         order_details = response.json()
         
-        # Probeer eerst met de standaard response
-        # Als er geen custom_field_inputs zijn, doe een retry met expliciete include parameters
-        if not isinstance(order_details.get("custom_field_inputs"), list) or not order_details.get("custom_field_inputs"):
-            logger.warning(f"Geen root-level custom fields voor bestelling {order_id}, probeer opnieuw met expliciete include parameters")
-            # Probeer opnieuw met expliciete include parameters om alle details te krijgen
-            url = f"https://api.plugandpay.nl/v1/orders/{order_id}?include=custom_field_inputs,products.custom_field_inputs,address"
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            order_details = response.json()
-        
         # Initialiseer custom_field_inputs als lege lijst als deze niet bestaat
         if not isinstance(order_details.get("custom_field_inputs"), list):
             order_details["custom_field_inputs"] = []
         
-        # Gebruik de nieuwe get_custom_fields functie om alle custom fields te verzamelen
-        # De functie zal automatisch alle fallback-strategieën proberen
+        # Gebruik de verbeterde get_custom_fields functie om alle custom fields te verzamelen
+        # De functie zal automatisch alle fallback-strategieën proberen en beide formats ondersteunen
         custom_fields_dict = get_custom_fields(order_details, headers)
         
         # Als er custom fields zijn gevonden via de functie, zorg ervoor dat ze ook in de 
@@ -245,6 +288,21 @@ def get_order_details(order_id):
             
             # Vervang de bestaande custom_field_inputs met onze nieuwe, complete lijst
             order_details["custom_field_inputs"] = custom_field_list
+            
+            # Log de gevonden custom fields voor debugging
+            logger.debug(f"Order {order_id}: Gevonden custom fields: {custom_fields_dict}")
+        
+        # Zorg ervoor dat we ook de nieuwe format custom fields hebben in de order_details
+        # Dit is voor compatibiliteit met nieuwere code die mogelijk de nieuwe format verwacht
+        if custom_fields_dict and not order_details.get("custom_fields"):
+            # Converteer de dictionary naar het nieuwe format (label/input)
+            custom_fields_new_format = []
+            for label, input_value in custom_fields_dict.items():
+                custom_fields_new_format.append({"label": label, "input": input_value})
+            
+            # Voeg de nieuwe format toe aan de order_details
+            order_details["custom_fields"] = custom_fields_new_format
+            logger.debug(f"Order {order_id}: Custom fields in nieuwe format toegevoegd")
         
         # Log de ontvangen velden om te bevestigen dat we alle benodigde data hebben
         has_custom_fields = len(custom_fields_dict) > 0
@@ -255,7 +313,7 @@ def get_order_details(order_id):
         logger.debug(f"Order {order_id} detail keys: {list(order_details.keys())}")
         
         logger.info(f"Succesvol details opgehaald voor bestelling {order_id}. "
-                   f"Bevat custom fields: {has_custom_fields}, "
+                   f"Bevat custom fields: {has_custom_fields} ({len(custom_fields_dict)} velden), "
                    f"Bevat products: {has_products}, "
                    f"Bevat address: {has_address}")
         
