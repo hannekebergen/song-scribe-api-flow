@@ -123,7 +123,18 @@ def get_order_details(order_id):
         order_details = response.json()
         
         # Controleer of we de volledige data hebben ontvangen
-        if not order_details.get("custom_field_inputs") and not order_details.get("products"):
+        has_root_custom_fields = isinstance(order_details.get("custom_field_inputs"), list) and order_details.get("custom_field_inputs")
+        has_product_custom_fields = False
+        
+        # Check if custom fields exist in products
+        if order_details.get("products"):
+            has_product_custom_fields = any(
+                isinstance(p.get('custom_field_inputs'), list) and p['custom_field_inputs']
+                for p in order_details.get('products', [])
+            )
+        
+        # Als we geen custom fields hebben op root-niveau of in products, en geen products hebben, probeer opnieuw
+        if not (has_root_custom_fields or has_product_custom_fields or order_details.get("products")):
             logger.warning(f"Onvolledige data ontvangen voor bestelling {order_id}, probeer opnieuw met expliciete include parameters")
             # Probeer opnieuw met expliciete include parameters om alle details te krijgen
             url = f"https://api.plugandpay.nl/v1/orders/{order_id}?include=custom_field_inputs,products,address"
@@ -132,12 +143,32 @@ def get_order_details(order_id):
             order_details = response.json()
         
         # Log de ontvangen velden om te bevestigen dat we alle benodigde data hebben
-        has_custom_fields = "custom_field_inputs" in order_details and len(order_details.get("custom_field_inputs", [])) > 0
+        has_root_custom_fields = isinstance(order_details.get("custom_field_inputs"), list) and len(order_details.get("custom_field_inputs", [])) > 0
+        
+        has_product_custom_fields = False
+        if order_details.get("products"):
+            has_product_custom_fields = any(
+                isinstance(p.get('custom_field_inputs'), list) and len(p.get('custom_field_inputs', [])) > 0
+                for p in order_details.get('products', [])
+            )
+        
         has_products = "products" in order_details and len(order_details.get("products", [])) > 0
         has_address = "address" in order_details and order_details.get("address") is not None
         
+        # Debug logging voor beschikbare keys
+        logger.debug(f"Order {order_id} detail keys: {list(order_details.keys())}")
+        
+        # Debug logging voor custom fields
+        root_custom_fields = order_details.get('custom_field_inputs')
+        product_custom_fields = None
+        if has_products and len(order_details.get('products', [])) > 0:
+            product_custom_fields = order_details['products'][0].get('custom_field_inputs')
+        logger.debug(f"Order {order_id} root custom fields: {root_custom_fields}")
+        logger.debug(f"Order {order_id} product custom fields: {product_custom_fields}")
+        
         logger.info(f"Succesvol details opgehaald voor bestelling {order_id}. "
-                   f"Bevat custom fields: {has_custom_fields}, "
+                   f"Bevat root custom fields: {has_root_custom_fields}, "
+                   f"Bevat product custom fields: {has_product_custom_fields}, "
                    f"Bevat products: {has_products}, "
                    f"Bevat address: {has_address}")
         
@@ -198,8 +229,26 @@ def fetch_and_store_recent_orders(db_session: Session):
                 # Dit zorgt ervoor dat we alle custom fields, products en address informatie hebben
                 order_details = get_order_details(order_id)
                 
-                # Controleer of we de volledige data hebben ontvangen
-                has_custom_fields = "custom_field_inputs" in order_details and len(order_details.get("custom_field_inputs", [])) > 0
+                # Debug logging om te zien welke keys beschikbaar zijn in order_details
+                logger.debug(f"Order {order_id} detail keys: {list(order_details.keys())}")
+
+                # Controleer of custom_field_inputs aanwezig is op root-niveau of binnen products
+                has_custom_fields = (
+                    isinstance(order_details.get('custom_field_inputs'), list)
+                    and len(order_details.get('custom_field_inputs', [])) > 0
+                ) or any(
+                    isinstance(p.get('custom_field_inputs'), list) and p['custom_field_inputs']
+                    for p in order_details.get('products', [])
+                )
+
+                # Debug logging voor custom fields
+                root_custom_fields = order_details.get('custom_field_inputs')
+                product_custom_fields = None
+                if order_details.get('products') and len(order_details.get('products', [])) > 0:
+                    product_custom_fields = order_details['products'][0].get('custom_field_inputs')
+                logger.debug(f"Order {order_id} root custom fields: {root_custom_fields}")
+                logger.debug(f"Order {order_id} product custom fields: {product_custom_fields}")
+
                 has_products = "products" in order_details and len(order_details.get("products", [])) > 0
                 
                 if not has_custom_fields or not has_products:
