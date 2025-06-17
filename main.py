@@ -9,7 +9,7 @@ import time
 import asyncio
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# Configure logging level from environment variable
+# Configure logging level from environment variables
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 
 # Importeer routers
