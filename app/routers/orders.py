@@ -151,9 +151,29 @@ def read_order(
         
         # Try to extract from root-level custom_fields (old format)
         if "custom_fields" in order.raw_data and order.raw_data["custom_fields"]:
-            for field_name, field_value in order.raw_data["custom_fields"].items():
-                custom_fields[field_name] = field_value
-                logger.info(f"Order {order_id}: Found field '{field_name}' in root-level custom_fields")
+            raw_custom_fields = order.raw_data["custom_fields"]
+            
+            # Handle both dict and list formats for custom_fields
+            if isinstance(raw_custom_fields, dict):
+                # Process as key-value pairs (original format)
+                for field_name, field_value in raw_custom_fields.items():
+                    custom_fields[field_name] = field_value
+                    logger.info(f"Order {order_id}: Found field '{field_name}' in root-level custom_fields (dict format)")
+            elif isinstance(raw_custom_fields, list):
+                # Process as list of dicts with name/label and value/input/text
+                for field in raw_custom_fields:
+                    try:
+                        field_name = field.get("label") or field.get("name", "onbekend")
+                        field_value = field.get("input") or field.get("value") or field.get("text") or ""
+                        if not field_value:
+                            logger.warning(f"Order {order_id}: Ongeldig custom field zonder waarde: {field}")
+                            continue
+                        custom_fields[field_name] = field_value
+                        logger.info(f"Order {order_id}: Found field '{field_name}' in root-level custom_fields (list format)")
+                    except Exception as e:
+                        logger.warning(f"Order {order_id}: Ongeldig custom field formaat: {field}, error: {str(e)}")
+            else:
+                logger.warning(f"Order {order_id}: Onbekend formaat voor custom_fields: {type(raw_custom_fields)}")
         
         # Extract product-level custom fields
         product_fields_found = False
