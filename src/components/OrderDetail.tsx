@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Download, RotateCw, Save, FileText, FileJson } from 'lucide-react';
+import { Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ordersApi, Order } from '@/services/api';
+import { ordersApi } from '@/services/api';
+import { Order } from '@/types';
 
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,7 +33,7 @@ const OrderDetail = () => {
 
   const loadOrder = async (orderId: string) => {
     try {
-      const data = await ordersApi.getOrder(orderId);
+      const data = await ordersApi.getOrder(Number(orderId));
       setOrder(data);
     } catch (error) {
       console.error('Error loading order:', error);
@@ -51,7 +52,7 @@ const OrderDetail = () => {
 
     setSaving(true);
     try {
-      const updatedOrder = await ordersApi.updateSongtext(order.order_id, editedSongtext);
+      const updatedOrder = await ordersApi.updateSongtext(String(order.order_id), editedSongtext);
       if (updatedOrder) {
         setOrder(updatedOrder);
         toast({
@@ -76,7 +77,7 @@ const OrderDetail = () => {
 
     setRegenerating(true);
     try {
-      const updatedOrder = await ordersApi.regeneratePrompt(order.order_id);
+      const updatedOrder = await ordersApi.regeneratePrompt(String(order.order_id));
       if (updatedOrder) {
         setOrder(updatedOrder);
         setEditedSongtext(updatedOrder.songtekst);
@@ -101,14 +102,14 @@ const OrderDetail = () => {
     if (!order) return;
 
     try {
-      const data = await ordersApi.downloadOrder(order.order_id, type);
+      const data = await ordersApi.downloadOrder(String(order.order_id), type);
       const blob = new Blob([data], { 
         type: type === 'json' ? 'application/json' : 'text/plain' 
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `order-${order.order_id}.${type}`;
+      link.download = `order-${String(order.order_id)}.${type}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -143,7 +144,7 @@ const OrderDetail = () => {
           <h1 className="text-2xl font-bold mb-4">Order niet gevonden</h1>
           <Button asChild>
             <Link to="/dashboard">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <Download className="h-4 w-4 mr-2" />
               Terug naar dashboard
             </Link>
           </Button>
@@ -159,7 +160,7 @@ const OrderDetail = () => {
       <div className="flex items-center justify-between">
         <Button asChild variant="outline">
           <Link to="/dashboard">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <Download className="h-4 w-4 mr-2" />
             Terug naar dashboard
           </Link>
         </Button>
@@ -170,7 +171,7 @@ const OrderDetail = () => {
             variant="outline"
             size="sm"
           >
-            <FileJson className="h-4 w-4 mr-2" />
+            <AlertCircle className="h-4 w-4 mr-2" />
             Download JSON
           </Button>
           <Button 
@@ -178,7 +179,7 @@ const OrderDetail = () => {
             variant="outline" 
             size="sm"
           >
-            <FileText className="h-4 w-4 mr-2" />
+            <CheckCircle className="h-4 w-4 mr-2" />
             Download TXT
           </Button>
           <Button 
@@ -186,7 +187,7 @@ const OrderDetail = () => {
             disabled={regenerating}
             size="sm"
           >
-            <RotateCw className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
+            <Loader2 className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
             Hergenereer
           </Button>
         </div>
@@ -259,6 +260,17 @@ const OrderDetail = () => {
               <p className="text-sm leading-relaxed">{order.beschrijving}</p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Persoonlijk verhaal</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="text-sm leading-relaxed bg-gray-50 p-3 rounded whitespace-pre-wrap">
+                {order.raw_data?.address?.note ? order.raw_data.address.note : "Geen persoonlijk verhaal meegegeven."}
+              </pre>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -285,7 +297,7 @@ const OrderDetail = () => {
                   disabled={!hasChanges || saving}
                   className="flex-1"
                 >
-                  <Save className="h-4 w-4 mr-2" />
+                  <CheckCircle className="h-4 w-4 mr-2" />
                   {saving ? 'Opslaan...' : 'Opslaan'}
                 </Button>
                 

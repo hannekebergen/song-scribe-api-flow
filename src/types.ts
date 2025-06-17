@@ -8,6 +8,17 @@ export interface Order {
   klant_email: string | null;
   product_naam: string;
   bestel_datum: string;
+  songtekst?: string;
+  status?: string;
+  voornaam?: string;
+  van_naam?: string;
+  relatie?: string;
+  datum?: string;
+  thema?: string;
+  toon?: string;
+  structuur?: string;
+  rijm?: string;
+  beschrijving?: string;
   raw_data?: {
     custom_field_inputs?: Array<{ label: string; input: string }>;
     products?: Array<{ title: string }>;
@@ -15,6 +26,7 @@ export interface Order {
       full_name?: string;
       firstname?: string;
       lastname?: string;
+      note?: string;
     };
     [key: string]: any; // Allow for other fields in raw_data
   };
@@ -25,6 +37,7 @@ export interface Order {
     full_name?: string;
     firstname?: string;
     lastname?: string;
+    note?: string;
   };
 }
 
