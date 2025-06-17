@@ -180,6 +180,42 @@ def read_order(
             note = order.raw_data["address"]["note"]
             if note and len(note.strip()) > 0:
                 custom_fields["Beschrijf"] = note
+                logger.debug(f"Order {order_id}: Persoonlijk verhaal gevonden in address.note")
+        
+        # Controleer of er een beschrijving is gevonden, zo niet, probeer andere velden
+        has_description = False
+        for field_name in custom_fields:
+            if field_name in ["Beschrijf", "Persoonlijk verhaal", "Vertel iets over deze persoon", "Toelichting", 
+                             "Vertel over de gelegenheid", "Vertel over de persoon", "Vertel over deze persoon",
+                             "Vertel over je wensen", "Vertel over je ideeën", "Vertel je verhaal", "Vertel meer", "Vertel"]:
+                has_description = True
+                break
+        
+        # Als er geen beschrijving is gevonden, probeer andere velden te gebruiken als fallback
+        if not has_description:
+            # Probeer opmerkingen of notities velden
+            for field_name, field_value in custom_fields.items():
+                # Zoek naar velden die mogelijk beschrijvingen bevatten
+                if any(keyword in field_name.lower() for keyword in ["opmerking", "notitie", "wens", "idee", "verhaal", "vertel", "beschrijf"]):
+                    custom_fields["Beschrijf"] = field_value
+                    logger.info(f"Order {order_id}: Beschrijving gevonden in alternatief veld '{field_name}'")
+                    has_description = True
+                    break
+            
+            # Als er nog steeds geen beschrijving is, probeer een samengestelde beschrijving te maken
+            if not has_description:
+                description_parts = []
+                # Voeg relevante velden samen om een beschrijving te maken
+                if "Thema" in custom_fields:
+                    description_parts.append(f"Thema: {custom_fields['Thema']}")
+                if "Gelegenheid" in custom_fields:
+                    description_parts.append(f"Gelegenheid: {custom_fields['Gelegenheid']}")
+                if "Toon" in custom_fields:
+                    description_parts.append(f"Gewenste toon: {custom_fields['Toon']}")
+                
+                if description_parts:
+                    custom_fields["Beschrijf"] = "\n".join(description_parts)
+                    logger.info(f"Order {order_id}: Samengestelde beschrijving gemaakt uit {len(description_parts)} velden")
         
         # Map custom fields naar specifieke velden in het order object
         # Gebruik een mapping van mogelijke veldnamen naar attributen
@@ -225,6 +261,14 @@ def read_order(
             "Persoonlijk verhaal": "beschrijving",
             "Vertel iets over deze persoon": "beschrijving",
             "Toelichting": "beschrijving",
+            "Vertel over de gelegenheid": "beschrijving",
+            "Vertel over de persoon": "beschrijving",
+            "Vertel over deze persoon": "beschrijving",
+            "Vertel over je wensen": "beschrijving",
+            "Vertel over je ideeën": "beschrijving",
+            "Vertel je verhaal": "beschrijving",
+            "Vertel meer": "beschrijving",
+            "Vertel": "beschrijving",
         }
         
         # Wijs custom fields toe aan order attributen

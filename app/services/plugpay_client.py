@@ -215,13 +215,43 @@ def get_custom_fields(order_data, api_headers=None):
             # Log de fout, maar laat de functie doorgaan
             logger.warning(f"Order {order_id}: Fout bij ophalen checkout data: {str(e)}")
     
-    # Stap 4: Probeer persoonlijk verhaal uit address.note als laatste redmiddel
+    # Stap 4: Probeer persoonlijk verhaal uit address.note als redmiddel
     if not result.get("Beschrijf") and order_data.get("address") and order_data.get("address", {}).get("note"):
         note = order_data.get("address", {}).get("note")
         if note and len(note.strip()) > 0:
             result["Beschrijf"] = note
             logger.info(f"Order {order_id}: Persoonlijk verhaal gevonden in address.note")
             source_path = source_path or "address_note"
+    
+    # Stap 5: Zoek naar velden die mogelijk beschrijvingen bevatten
+    if not result.get("Beschrijf"):
+        # Zoek naar velden met specifieke keywords in de naam
+        description_keywords = ["opmerking", "notitie", "wens", "idee", "verhaal", "vertel", "beschrijf", "toelichting"]
+        for field_name, field_value in result.items():
+            if any(keyword in field_name.lower() for keyword in description_keywords):
+                result["Beschrijf"] = field_value
+                logger.info(f"Order {order_id}: Beschrijving gevonden in alternatief veld '{field_name}'")
+                source_path = source_path or "keyword_match"
+                break
+    
+    # Stap 6: Als er nog steeds geen beschrijving is, maar wel andere velden, maak een samengestelde beschrijving
+    if not result.get("Beschrijf") and len(result) > 0:
+        description_parts = []
+        # Voeg relevante velden samen om een beschrijving te maken
+        important_fields = ["Thema", "Gelegenheid", "Toon", "Stijl", "Gewenste toon", "Structuur", "Opbouw"]
+        for field in important_fields:
+            if field in result:
+                description_parts.append(f"{field}: {result[field]}")
+        
+        # Als er andere velden zijn die niet in important_fields staan, voeg die ook toe
+        for field_name, field_value in result.items():
+            if field_name not in important_fields and field_name not in ["Voornaam", "Achternaam", "Van", "Datum", "Deadline", "Wanneer"]:
+                description_parts.append(f"{field_name}: {field_value}")
+        
+        if description_parts:
+            result["Beschrijf"] = "\n".join(description_parts)
+            logger.info(f"Order {order_id}: Samengestelde beschrijving gemaakt uit {len(description_parts)} velden")
+            source_path = source_path or "composite_description"
     
     # Log het resultaat
     if result:
@@ -272,6 +302,37 @@ def get_order_details(order_id):
         # Initialiseer custom_field_inputs als lege lijst als deze niet bestaat
         if not isinstance(order_details.get("custom_field_inputs"), list):
             order_details["custom_field_inputs"] = []
+            
+        # Controleer of er product-level custom fields zijn en voeg ze toe aan de root-level
+        if "products" in order_details and isinstance(order_details["products"], list):
+            for product in order_details["products"]:
+                # Controleer op product-level custom_field_inputs (oude format)
+                if "custom_field_inputs" in product and isinstance(product["custom_field_inputs"], list):
+                    logger.info(f"Order {order_details.get('id')}: {len(product['custom_field_inputs'])} product-level custom fields gevonden")
+                    # Maak een kopie van de product-level custom fields en voeg ze toe aan de root-level
+                    for field in product["custom_field_inputs"]:
+                        # Voeg alleen toe als het veld nog niet bestaat op root-level
+                        if not any(root_field.get("id") == field.get("id") for root_field in order_details["custom_field_inputs"]):
+                            order_details["custom_field_inputs"].append(field)
+                            logger.debug(f"Order {order_details.get('id')}: Product-level custom field '{field.get('label')}' toegevoegd aan root-level")
+                
+                # Controleer op product-level custom_fields (nieuwe format)
+                if "custom_fields" in product and isinstance(product["custom_fields"], list):
+                    # Initialiseer custom_fields op root-level als het niet bestaat
+                    if not isinstance(order_details.get("custom_fields"), list):
+                        order_details["custom_fields"] = []
+                    
+                    # Maak een kopie van de product-level custom fields en voeg ze toe aan de root-level
+                    for field in product["custom_fields"]:
+                        # Voeg alleen toe als het veld nog niet bestaat op root-level
+                        if not any(root_field.get("id") == field.get("id") for root_field in order_details["custom_fields"]):
+                            order_details["custom_fields"].append(field)
+                            logger.debug(f"Order {order_details.get('id')}: Product-level custom field (nieuwe format) '{field.get('label')}' toegevoegd aan root-level")
+        
+        # Log de aantal custom fields op root-level en product-level voor debugging
+        root_fields_count = len(order_details.get("custom_field_inputs", []))
+        product_fields_count = sum(len(product.get("custom_field_inputs", [])) for product in order_details.get("products", []) if isinstance(product, dict))
+        logger.debug(f"Order {order_details.get('id')}: {root_fields_count} root-level custom fields en {product_fields_count} product-level custom fields")
         
         # Gebruik de verbeterde get_custom_fields functie om alle custom fields te verzamelen
         # De functie zal automatisch alle fallback-strategieën proberen en beide formats ondersteunen
