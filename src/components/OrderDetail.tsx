@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Download, AlertCircle, CheckCircle, Loader2, ArrowLeft, FileText, Edit3, Save, RotateCcw, Calendar, User, Heart, Music } from 'lucide-react';
+import { Download, Check, X, ArrowLeft, FileText, Edit3, Save, RotateCcw, Calendar, User, Heart, Music } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -147,7 +146,7 @@ const OrderDetail = () => {
         <div className="container mx-auto p-6">
           <div className="text-center py-20">
             <div className="mb-6">
-              <AlertCircle className="h-16 w-16 mx-auto text-gray-400" />
+              <X className="h-16 w-16 mx-auto text-gray-400" />
             </div>
             <h1 className="text-2xl font-bold mb-4 text-gray-800">Order niet gevonden</h1>
             <p className="text-gray-600 mb-8">De opgevraagde order bestaat niet of is niet toegankelijk.</p>
@@ -220,7 +219,7 @@ const OrderDetail = () => {
               size="sm"
               className="bg-blue-600 hover:bg-blue-700"
             >
-              <Loader2 className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
+              <X className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
               Hergenereer
             </Button>
           </div>
@@ -382,7 +381,7 @@ const OrderDetail = () => {
                 {order.songtekst && order.songtekst.length > 0 && (
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                     <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-4 w-4 text-blue-600" />
+                      <Check className="h-4 w-4 text-blue-600" />
                       <span className="text-sm font-medium text-blue-800">
                         Status: Songtekst beschikbaar
                       </span>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LogOut } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -105,7 +105,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
           size="sm"
           className="bg-white/80 backdrop-blur-sm"
         >
-          <LogOut className="h-4 w-4 mr-2" />
+          <X className="h-4 w-4 mr-2" />
           Uitloggen
         </Button>
       </div>
