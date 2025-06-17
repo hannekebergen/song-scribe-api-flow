@@ -32,51 +32,16 @@ export interface MappedOrder {
 export function mapOrder(order: Order): MappedOrder {
   // Extract deadline from product title using regex
   // Looking for patterns like "Binnen 24 uur" or "Binnen 48 uur"
-  let deadline = 'Standaard';
-  try {
-    // Get deadline from raw_data.products[0].title
-    if (order.raw_data?.products && order.raw_data.products.length > 0) {
-      const productTitle = order.raw_data.products[0].title || '';
-      const match = productTitle.match(/Binnen\s+(\d+)\s+uur/i);
-      if (match && match[1]) {
-        deadline = `${match[1]} uur`;
-      }
-    }
-  } catch (e) {
-    console.warn('Error extracting deadline from raw_data:', e);
-  }
+  const deadline = (order.products?.[0]?.title.match(/Binnen\s+(\d+)\s+uur/)?.[1] + ' uur') || '-';
 
-  // Safely format date
-  let formattedDate = 'Onbekend';
-  try {
-    if (order.bestel_datum) {
-      const date = new Date(order.bestel_datum);
-      if (!isNaN(date.getTime())) {
-        formattedDate = date.toLocaleDateString();
-      }
-    }
-  } catch (e) {
-    console.warn('Error formatting date:', e);
-  }
+  // Format date
+  const formattedDate = new Date(order.bestel_datum).toLocaleDateString();
 
-  // Extract thema from raw_data.custom_field_inputs
-  let thema = 'Onbekend';
-  try {
-    thema = order.raw_data?.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || 'Onbekend';
-  } catch (e) {
-    console.warn('Error extracting thema from raw_data:', e);
-  }
+  // Extract thema from custom_field_inputs
+  const thema = order.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || '-';
 
-  // Extract klant from raw_data.address
-  let klant = 'Onbekend';
-  try {
-    klant = order.raw_data?.address?.full_name || 
-           (order.raw_data?.address?.firstname || order.raw_data?.address?.lastname ? 
-             `${order.raw_data?.address?.firstname || ''} ${order.raw_data?.address?.lastname || ''}`.trim() : 
-             'Onbekend');
-  } catch (e) {
-    console.warn('Error extracting klant from raw_data:', e);
-  }
+  // Extract klant name
+  const klant = order.klant_naam || order.address?.full_name || '-';
 
   return {
     ordernummer: order.order_id,
@@ -107,18 +72,13 @@ export function useFetchOrders() {
       // Use the ordersApi service to fetch orders
       const data = await ordersApi.getOrders();
       
-      // Store the orders directly without enrichment
+      // Store the orders directly
       setOrders(data);
       
       // Map the orders to the display format
       const mapped = data.map(mapOrder);
       setMappedOrders(mapped);
       
-      // Log the data for debugging
-      console.log('Orders from API:', data);
-      console.log('Mapped orders:', mapped);
-      console.log('⚙️ Mapped orders in hook:', mapped);
-
       return data;
     } catch (error: any) {
       console.error('Error fetching orders:', error);

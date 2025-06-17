@@ -40,6 +40,21 @@ function OrderDetailModal({ isOpen, onClose, orderId }: OrderDetailModalProps) {
     }
   };
 
+  // Get thema from custom_field_inputs
+  const getThema = (order: Order | null) => {
+    return order?.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || '-';
+  };
+
+  // Get beschrijving from custom_field_inputs
+  const getBeschrijving = (order: Order | null) => {
+    return order?.custom_field_inputs?.find(f => f.label === 'Beschrijf')?.input || '-';
+  };
+
+  // Get klant name
+  const getKlantNaam = (order: Order | null) => {
+    return order?.klant_naam || order?.address?.full_name || '-';
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -70,17 +85,17 @@ function OrderDetailModal({ isOpen, onClose, orderId }: OrderDetailModalProps) {
               <div className="font-medium">Order ID:</div>
               <div className="font-mono">{order.order_id}</div>
               
-              <div className="font-medium">Klant:</div>
-              <div>{order.klant_naam || 'Onbekend'}</div>
+              <div className="font-medium">Van:</div>
+              <div>{getKlantNaam(order)}</div>
               
-              <div className="font-medium">Email:</div>
-              <div>{order.klant_email || 'Onbekend'}</div>
-              
-              <div className="font-medium">Product:</div>
-              <div>{order.product_naam}</div>
+              <div className="font-medium">Thema:</div>
+              <div>{getThema(order)}</div>
               
               <div className="font-medium">Datum:</div>
               <div>{formatDate(order.bestel_datum)}</div>
+              
+              <div className="font-medium">Beschrijving:</div>
+              <div className="col-span-2 whitespace-pre-wrap border p-2 rounded-md text-sm">{getBeschrijving(order)}</div>
             </div>
             
             <div className="flex justify-end">
