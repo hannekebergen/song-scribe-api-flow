@@ -7,7 +7,9 @@ om ordergegevens op te halen en te verwerken.
 
 import os
 import logging
+import json
 import requests
+from typing import Any, Dict, List, Set, Tuple, Union
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
@@ -18,6 +20,105 @@ load_dotenv()
 
 # Configureer logging
 logger = logging.getLogger(__name__)
+
+
+def to_safe_json(data: Any) -> Any:
+    """
+    Maakt een object JSON-safe door circular references te detecteren en te vervangen,
+    en niet-serialiseerbare objecten om te zetten naar strings.
+    
+    Args:
+        data: Het object dat JSON-safe gemaakt moet worden
+        
+    Returns:
+        Een JSON-safe versie van het object
+    """
+    # Houd bij welke objecten al zijn verwerkt om circular references te detecteren
+    processed_objects: Set[int] = set()
+    # Houd bij welke velden zijn verwijderd
+    removed_fields: List[str] = []
+    
+    # Lijst van bekende probleemvelden die uitgesloten moeten worden
+    excluded_keys = ['_sa_instance_state', 'v2_data', 'object', 'session', 
+                     'internal', '_internal', 'client', '_client']
+    
+    def process_object(obj: Any, path: str = "") -> Any:
+        # Basis types kunnen direct geretourneerd worden
+        if obj is None or isinstance(obj, (bool, int, float, str)):
+            return obj
+            
+        # Detecteer circular references
+        obj_id = id(obj)
+        if obj_id in processed_objects:
+            return "CIRCULAR_REF"
+            
+        # Voeg het object toe aan verwerkte objecten
+        processed_objects.add(obj_id)
+        
+        try:
+            # Verwerk dictionary
+            if isinstance(obj, dict):
+                result = {}
+                for key, value in obj.items():
+                    # Sla uitgesloten velden over
+                    if key in excluded_keys:
+                        removed_fields.append(f"{path}.{key}" if path else key)
+                        continue
+                    # Verwerk de waarde recursief
+                    result[key] = process_object(value, f"{path}.{key}" if path else key)
+                return result
+                
+            # Verwerk lijst
+            elif isinstance(obj, list):
+                return [process_object(item, f"{path}[{i}]") for i, item in enumerate(obj)]
+                
+            # Verwerk tuple
+            elif isinstance(obj, tuple):
+                return tuple(process_object(item, f"{path}[{i}]") for i, item in enumerate(obj))
+                
+            # Andere objecten naar string converteren
+            else:
+                return str(obj)
+                
+        finally:
+            # Verwijder het object uit de set van verwerkte objecten
+            # zodat het in andere paden wel verwerkt kan worden
+            processed_objects.remove(obj_id)
+    
+    # Verwerk het object
+    result = process_object(data)
+    
+    # Log het aantal verwijderde velden
+    if removed_fields:
+        logger.debug(f"Verwijderde {len(removed_fields)} velden tijdens JSON-safe maken: {', '.join(removed_fields)}")
+        
+    return result
+
+
+def dump_safe_json(data: Any) -> str:
+    """
+    Converteert een object naar een JSON-string, waarbij circular references
+    en niet-serialiseerbare objecten veilig worden afgehandeld.
+    
+    Args:
+        data: Het object dat naar JSON geconverteerd moet worden
+        
+    Returns:
+        str: Een JSON-string representatie van het object
+    """
+    try:
+        # Maak het object eerst JSON-safe
+        safe_data = to_safe_json(data)
+        # Converteer naar JSON met fallback naar str voor niet-serialiseerbare waarden
+        return json.dumps(safe_data, default=str)
+    except Exception as e:
+        logger.warning(f"Fout bij serialiseren naar JSON: {e}")
+        # Fallback naar een minimale versie met alleen basis informatie
+        minimal_data = {
+            "id": data.get("id") if isinstance(data, dict) else None,
+            "error": f"Volledige data kon niet worden geserialiseerd: {e}"
+        }
+        return json.dumps(minimal_data)
 
 class PlugPayAPIError(Exception):
     """Exception voor fouten bij het aanroepen van de Plug&Pay API."""
@@ -527,15 +628,37 @@ def fetch_and_store_recent_orders(db_session: Session):
                 
                 if existing_order:
                     # Update de bestaande bestelling met de volledige raw_data
-                    existing_order.raw_data = order_details
-                    db_session.commit()
-                    
-                    logger.info(f"Bestelling {order_id} bestaat al en is bijgewerkt met volledige raw_data")
-                    updated_count += 1
+                    try:
+                        # Gebruik dump_safe_json om de order_details veilig te serialiseren
+                        existing_order.raw_data = json.loads(dump_safe_json(order_details))
+                        db_session.commit()
+                        
+                        logger.info(f"Bestelling {order_id} bestaat al en is bijgewerkt met volledige raw_data")
+                        updated_count += 1
+                    except Exception as e:
+                        logger.warning(f"Fout bij serialiseren van order {order_id} voor raw_data: {e}")
+                        existing_order.raw_data = {}
+                        db_session.commit()
+                        logger.info(f"Bestelling {order_id} bijgewerkt met lege raw_data vanwege serialisatiefout")
+                        updated_count += 1
                     continue
                 
                 # Maak een nieuw Order object aan en sla het op met de volledige order_details
-                _, created = Order.create_from_plugpay_data(db_session, order_details)
+                # Maak de order_details eerst JSON-safe
+                try:
+                    # Gebruik dump_safe_json om de order_details veilig te serialiseren
+                    safe_order_details = json.loads(dump_safe_json(order_details))
+                    _, created = Order.create_from_plugpay_data(db_session, safe_order_details)
+                except Exception as e:
+                    logger.warning(f"Fout bij serialiseren van order {order_id} voor raw_data: {e}")
+                    # Behoud de essentiële velden maar zet raw_data op een lege dict
+                    minimal_order = {
+                        "id": order_details.get("id"),
+                        "customer": order_details.get("customer", {}),
+                        "products": order_details.get("products", []),
+                        "created_at": order_details.get("created_at")
+                    }
+                    _, created = Order.create_from_plugpay_data(db_session, minimal_order)
                 
                 if created:
                     added_count += 1
