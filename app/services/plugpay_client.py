@@ -171,6 +171,31 @@ def get_order_details(order_id):
         # Na het mergen zijn alle custom fields nu in de root-level lijst
         has_product_custom_fields = product_custom_fields_count > 0
         
+        # FALLBACK: Als er na de retry nog steeds geen custom fields zijn, probeer ze op te halen via de checkout endpoint
+        if not has_root_custom_fields and "checkout_id" in order_details:
+            checkout_id = order_details.get("checkout_id")
+            logger.info(f"Geen custom fields gevonden voor order {order_id}, probeer fallback via checkout {checkout_id}")
+            
+            try:
+                # Doe een GET-call naar de checkout endpoint
+                checkout_url = f"https://api.plugandpay.nl/v1/checkouts/{checkout_id}?include=custom_field_inputs"
+                checkout_response = requests.get(checkout_url, headers=headers)
+                checkout_response.raise_for_status()
+                checkout_data = checkout_response.json()
+                
+                # Controleer of er custom fields in de checkout data zitten
+                if isinstance(checkout_data.get("custom_field_inputs"), list) and checkout_data.get("custom_field_inputs"):
+                    # Voeg de custom fields van de checkout toe aan de order details
+                    order_details["custom_field_inputs"] = checkout_data.get("custom_field_inputs")
+                    logger.info(f"In checkout-fallback custom fields gevonden voor order {order_id}")
+                    has_root_custom_fields = True
+                else:
+                    logger.info(f"Geen custom fields in checkout fallback voor order {order_id}")
+            except Exception as e:
+                # Log de fout, maar laat de functie doorgaan met de bestaande order_details
+                logger.warning(f"Fout bij ophalen checkout data voor order {order_id}: {str(e)}")
+
+        
         logger.info(f"Succesvol details opgehaald voor bestelling {order_id}. "
                    f"Bevat root custom fields: {has_root_custom_fields}, "
                    f"Bevat product custom fields: {has_product_custom_fields}, "
