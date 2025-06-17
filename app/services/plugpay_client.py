@@ -94,7 +94,7 @@ def get_order_details(order_id):
         order_id (str): Het ID van de bestelling
         
     Returns:
-        dict: JSON-response van de API als Python-object
+        dict: JSON-response van de API als Python-object met volledige order details
         
     Raises:
         PlugPayAPIError: Bij fouten in de API-aanroep of authenticatie
@@ -121,7 +121,25 @@ def get_order_details(order_id):
         
         # Parse de JSON-response
         order_details = response.json()
-        logger.info(f"Succesvol details opgehaald voor bestelling {order_id}")
+        
+        # Controleer of we de volledige data hebben ontvangen
+        if not order_details.get("custom_field_inputs") and not order_details.get("products"):
+            logger.warning(f"Onvolledige data ontvangen voor bestelling {order_id}, probeer opnieuw met expliciete include parameters")
+            # Probeer opnieuw met expliciete include parameters om alle details te krijgen
+            url = f"https://api.plugandpay.nl/v1/orders/{order_id}?include=custom_field_inputs,products,address"
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            order_details = response.json()
+        
+        # Log de ontvangen velden om te bevestigen dat we alle benodigde data hebben
+        has_custom_fields = "custom_field_inputs" in order_details and len(order_details.get("custom_field_inputs", [])) > 0
+        has_products = "products" in order_details and len(order_details.get("products", [])) > 0
+        has_address = "address" in order_details and order_details.get("address") is not None
+        
+        logger.info(f"Succesvol details opgehaald voor bestelling {order_id}. "
+                   f"Bevat custom fields: {has_custom_fields}, "
+                   f"Bevat products: {has_products}, "
+                   f"Bevat address: {has_address}")
         
         return order_details
         
@@ -139,6 +157,8 @@ def get_order_details(order_id):
 def fetch_and_store_recent_orders(db_session: Session):
     """
     Haalt recente bestellingen op van de Plug&Pay API en slaat ze op in de database.
+    Voor elke bestelling wordt een extra call gedaan naar de detail-endpoint om de volledige
+    payload met custom fields, productdetails en adresgegevens op te halen.
     
     Args:
         db_session: SQLAlchemy database sessie
@@ -150,7 +170,7 @@ def fetch_and_store_recent_orders(db_session: Session):
         PlugPayAPIError: Bij fouten in de API-aanroep of authenticatie
     """
     try:
-        # Haal recente bestellingen op
+        # Haal recente bestellingen op (summary list)
         orders_response = get_recent_orders()
         orders = orders_response.get("data", [])
         
@@ -163,10 +183,10 @@ def fetch_and_store_recent_orders(db_session: Session):
         # Houd bij hoeveel bestellingen zijn toegevoegd of overgeslagen
         added_count = 0
         skipped_count = 0
+        updated_count = 0
         
         # Verwerk elke bestelling
         for order in orders:
-            logger.debug("Raw Plug&Pay order: %s", order)
             order_id = order.get("id")
             if not order_id:
                 logger.warning("Bestelling zonder ID overgeslagen")
@@ -174,25 +194,30 @@ def fetch_and_store_recent_orders(db_session: Session):
                 continue
                 
             try:
+                # Haal altijd eerst de volledige gedetailleerde informatie op over de bestelling
+                # Dit zorgt ervoor dat we alle custom fields, products en address informatie hebben
+                order_details = get_order_details(order_id)
+                
+                # Controleer of we de volledige data hebben ontvangen
+                has_custom_fields = "custom_field_inputs" in order_details and len(order_details.get("custom_field_inputs", [])) > 0
+                has_products = "products" in order_details and len(order_details.get("products", [])) > 0
+                
+                if not has_custom_fields or not has_products:
+                    logger.warning(f"Onvolledige data voor bestelling {order_id}: custom_fields={has_custom_fields}, products={has_products}")
+                
                 # Controleer of de bestelling al in de database staat
                 existing_order = db_session.query(Order).filter_by(order_id=order_id).first()
                 
                 if existing_order:
-                    # Haal gedetailleerde informatie op over de bestelling
-                    order_details = get_order_details(order_id)
-                    
-                    # Update de bestaande bestelling met de raw_data
+                    # Update de bestaande bestelling met de volledige raw_data
                     existing_order.raw_data = order_details
                     db_session.commit()
                     
-                    logger.info(f"Bestelling {order_id} bestaat al en is bijgewerkt met raw_data")
-                    skipped_count += 1
+                    logger.info(f"Bestelling {order_id} bestaat al en is bijgewerkt met volledige raw_data")
+                    updated_count += 1
                     continue
                 
-                # Haal gedetailleerde informatie op over de bestelling
-                order_details = get_order_details(order_id)
-                
-                # Maak een nieuw Order object aan en sla het op
+                # Maak een nieuw Order object aan en sla het op met de volledige order_details
                 _, created = Order.create_from_plugpay_data(db_session, order_details)
                 
                 if created:
@@ -205,7 +230,8 @@ def fetch_and_store_recent_orders(db_session: Session):
                 skipped_count += 1
         
         # Log een samenvatting
-        logger.info(f"Verwerking voltooid: {added_count} nieuwe bestellingen toegevoegd, {skipped_count} overgeslagen")
+        logger.info(f"Verwerking voltooid: {added_count} nieuwe bestellingen toegevoegd, "
+                   f"{updated_count} bestellingen bijgewerkt, {skipped_count} overgeslagen")
         return added_count, skipped_count
         
     except Exception as e:
