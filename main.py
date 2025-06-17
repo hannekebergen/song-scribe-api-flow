@@ -46,8 +46,8 @@ app.add_middleware(SimpleLogger)
 # CORS configuratie voor frontend toegang vanaf Vercel
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # alle origins toegestaan
-    allow_credentials=False,  # geen cookies nodig
+    allow_origins=["https://song-scribe-api-flow.vercel.app"],  # specifiek alleen de Vercel frontend
+    allow_credentials=True,  # cookies toestaan voor auth
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -137,8 +137,11 @@ def read_order(
         # Try to extract from root-level custom_field_inputs (new format)
         if "custom_field_inputs" in order.raw_data and order.raw_data["custom_field_inputs"]:
             for field in order.raw_data["custom_field_inputs"]:
-                custom_fields[field["label"]] = field["input"]
-                logger.info(f"Order {order_id}: Found field '{field['label']}' in root-level custom_field_inputs")
+                if "label" in field and ("input" in field or "value" in field):
+                    custom_fields[field.get("label", "onbekend")] = field.get("input") or field.get("value") or ""
+                    logger.info(f"Order {order_id}: Found field '{field.get("label", "onbekend")}' in root-level custom_field_inputs")
+                else:
+                    logger.warning(f"Order {order_id}: Ongeldig custom field formaat: {field}")
         
         # Try to extract from root-level custom_fields (old format)
         if "custom_fields" in order.raw_data and order.raw_data["custom_fields"]:
@@ -155,13 +158,16 @@ def read_order(
                 if "custom_field_inputs" in product and product["custom_field_inputs"]:
                     logger.info(f"Order {order_id}: Product {product_idx} has {len(product['custom_field_inputs'])} custom_field_inputs")
                     for field in product["custom_field_inputs"]:
-                        custom_fields[field["label"]] = field["input"]
-                        product_fields_found = True
-                        logger.info(f"Order {order_id}: Found field '{field['label']}' in product-level custom_field_inputs")
-                        # Log the content length for description fields to help diagnose issues
-                        if field["label"] in ["Beschrijf", "Persoonlijk verhaal", "Vertel over de gelegenheid"]:
-                            content_length = len(field["input"]) if field["input"] else 0
-                            logger.info(f"Order {order_id}: Field '{field['label']}' has content length of {content_length} characters")
+                        if "label" in field and ("input" in field or "value" in field):
+                            custom_fields[field.get("label", "onbekend")] = field.get("input", "") or field.get("value", "")
+                            product_fields_found = True
+                            logger.info(f"Order {order_id}: Found field '{field.get('label', 'onbekend')}' in product-level custom_field_inputs")
+                            # Log the content length for description fields to help diagnose issues
+                            if field.get("label") in ["Beschrijf", "Persoonlijk verhaal", "Vertel over de gelegenheid"]:
+                                content_length = len(field.get("input", "")) if "input" in field else 0
+                                logger.info(f"Order {order_id}: Field '{field.get('label', 'onbekend')}' has content length of {content_length} characters")
+                        else:
+                            logger.warning(f"Order {order_id}: Ongeldig custom field formaat in product: {field}")
                 
                 # Try old format (custom_fields)
                 if "custom_fields" in product and product["custom_fields"]:
