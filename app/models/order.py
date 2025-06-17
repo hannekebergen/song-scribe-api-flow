@@ -5,6 +5,7 @@ SQLAlchemy model voor Plug&Pay bestellingen.
 import logging
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 
 from app.db.session import Base
@@ -27,6 +28,7 @@ class Order(Base):
     klant_email = Column(String, nullable=False)
     product_naam = Column(String, nullable=False)
     bestel_datum = Column(DateTime, default=datetime.utcnow)
+    raw_data = Column(JSONB, nullable=True)
     
     # Voeg een unieke constraint toe op order_id
     __table_args__ = (
@@ -82,7 +84,8 @@ class Order(Base):
                 klant_email=customer.get("email", "onbekend@example.com"),
                 product_naam=products[0].get("name", "Onbekend product") if products else "Onbekend product",
                 bestel_datum=datetime.fromisoformat(order_data.get("created_at").replace("Z", "+00:00")) 
-                            if order_data.get("created_at") else datetime.utcnow()
+                            if order_data.get("created_at") else datetime.utcnow(),
+                raw_data=order_data  # Sla de volledige Plug&Pay payload op
             )
             
             # Voeg het nieuwe object toe aan de database

@@ -5,10 +5,11 @@ Deze module bevat API endpoints voor het beheren van bestellingen.
 """
 
 import logging
-from typing import List
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, Path
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from app.db.session import get_db
 from app.models.order import Order
@@ -19,6 +20,11 @@ from app.crud import order as crud
 
 # Configureer logging
 logger = logging.getLogger(__name__)
+
+# Schema voor raw data response
+class RawDataResponse(BaseModel):
+    """Schema voor het tonen van raw data."""
+    raw_data: Optional[Dict[str, Any]] = None
 
 router = APIRouter(
     tags=["orders"],
@@ -155,3 +161,30 @@ async def fetch_orders(
     except Exception as e:
         logger.error(f"Onverwachte fout bij ophalen van bestellingen: {str(e)}")
         raise HTTPException(status_code=500, detail="Er is een fout opgetreden bij het ophalen van bestellingen")
+
+@router.get("/raw-data/{order_id}", response_model=RawDataResponse)
+def get_order_raw_data(
+    order_id: int = Path(..., description="Plug&Pay order_id"),
+    db: Session = Depends(get_db),
+    x_api_key: str = Depends(get_api_key),
+):
+    """
+    Haalt alleen de raw_data van een specifieke bestelling op.
+    
+    Vereist API-key authenticatie.
+    
+    Args:
+        order_id: ID van de bestelling
+        db: Database sessie
+        x_api_key: API key voor authenticatie
+        
+    Returns:
+        De raw_data van de opgevraagde bestelling
+        
+    Raises:
+        HTTPException: Als de bestelling niet gevonden wordt (404)
+    """
+    order = crud.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order niet gevonden")
+    return {"raw_data": order.raw_data}

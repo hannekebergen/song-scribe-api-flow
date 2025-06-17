@@ -3,7 +3,7 @@ Pydantic schemas voor Order modellen.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import BaseModel
 
 
@@ -16,10 +16,16 @@ class OrderBase(BaseModel):
     bestel_datum: datetime
 
 
-class OrderRead(OrderBase):
+class OrderRead(BaseModel):
     """Schema voor het lezen van Order objecten."""
     id: int
+    order_id: int
+    klant_naam: Optional[str] = None
+    klant_email: Optional[str] = None
+    product_naam: str
+    bestel_datum: datetime
+    raw_data: Optional[Dict[str, Any]] = None
 
     class Config:
         """Pydantic configuratie."""
-        orm_mode = True
+        from_attributes = True

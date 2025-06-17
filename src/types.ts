@@ -8,8 +8,19 @@ export interface Order {
   klant_email: string | null;
   product_naam: string;
   bestel_datum: string;
-  custom_field_inputs: Array<{ label: string; input: string }>;
-  products: Array<{ title: string }>;
+  raw_data?: {
+    custom_field_inputs?: Array<{ label: string; input: string }>;
+    products?: Array<{ title: string }>;
+    address?: {
+      full_name?: string;
+      firstname?: string;
+      lastname?: string;
+    };
+    [key: string]: any; // Allow for other fields in raw_data
+  };
+  // Legacy fields that might still be used in some parts of the code
+  custom_field_inputs?: Array<{ label: string; input: string }>;
+  products?: Array<{ title: string }>;
   address?: {
     full_name?: string;
     firstname?: string;

@@ -32,17 +32,18 @@ export interface MappedOrder {
 export function mapOrder(order: Order): MappedOrder {
   // Extract deadline from product title using regex
   // Looking for patterns like "Binnen 24 uur" or "Binnen 48 uur"
-  let deadline = '';
+  let deadline = 'Standaard';
   try {
-    if (order.products && order.products.length > 0) {
-      const productTitle = order.products[0].title || '';
+    // Get deadline from raw_data.products[0].title
+    if (order.raw_data?.products && order.raw_data.products.length > 0) {
+      const productTitle = order.raw_data.products[0].title || '';
       const match = productTitle.match(/Binnen\s+(\d+)\s+uur/i);
       if (match && match[1]) {
         deadline = `${match[1]} uur`;
       }
     }
   } catch (e) {
-    console.warn('Error extracting deadline:', e);
+    console.warn('Error extracting deadline from raw_data:', e);
   }
 
   // Safely format date
@@ -58,18 +59,31 @@ export function mapOrder(order: Order): MappedOrder {
     console.warn('Error formatting date:', e);
   }
 
+  // Extract thema from raw_data.custom_field_inputs
+  let thema = 'Onbekend';
+  try {
+    thema = order.raw_data?.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || 'Onbekend';
+  } catch (e) {
+    console.warn('Error extracting thema from raw_data:', e);
+  }
+
+  // Extract klant from raw_data.address
+  let klant = 'Onbekend';
+  try {
+    klant = order.raw_data?.address?.full_name || 
+           (order.raw_data?.address?.firstname || order.raw_data?.address?.lastname ? 
+             `${order.raw_data?.address?.firstname || ''} ${order.raw_data?.address?.lastname || ''}`.trim() : 
+             'Onbekend');
+  } catch (e) {
+    console.warn('Error extracting klant from raw_data:', e);
+  }
+
   return {
     ordernummer: order.order_id,
-    // Format date as localized string with fallback
     datum: formattedDate,
-    // Find the style custom field or use fallback
-    thema: order.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || 'Onbekend',
-    // Use full_name if available, otherwise combine firstname and lastname with fallbacks
-    klant: order.address?.full_name || 
-           (order.address?.firstname || order.address?.lastname ? 
-             `${order.address?.firstname || ''} ${order.address?.lastname || ''}`.trim() : 
-             order.klant_naam || 'Onbekend'),
-    deadline: deadline || 'Standaard',
+    thema: thema,
+    klant: klant,
+    deadline: deadline,
     originalOrder: order
   };
 }

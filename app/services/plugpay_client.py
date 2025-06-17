@@ -178,7 +178,14 @@ def fetch_and_store_recent_orders(db_session: Session):
                 existing_order = db_session.query(Order).filter_by(order_id=order_id).first()
                 
                 if existing_order:
-                    logger.debug(f"Bestelling {order_id} bestaat al in de database, wordt overgeslagen")
+                    # Haal gedetailleerde informatie op over de bestelling
+                    order_details = get_order_details(order_id)
+                    
+                    # Update de bestaande bestelling met de raw_data
+                    existing_order.raw_data = order_details
+                    db_session.commit()
+                    
+                    logger.info(f"Bestelling {order_id} bestaat al en is bijgewerkt met raw_data")
                     skipped_count += 1
                     continue
                 
