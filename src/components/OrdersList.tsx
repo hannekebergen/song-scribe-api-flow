@@ -40,19 +40,21 @@ function OrderDetailModal({ isOpen, onClose, orderId }: OrderDetailModalProps) {
     }
   };
 
-  // Get thema from custom_field_inputs
+  // Get thema from raw_data.custom_field_inputs
   const getThema = (order: Order | null) => {
-    return order?.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || '-';
+    return order?.raw_data?.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || '-';
   };
 
-  // Get beschrijving from custom_field_inputs
+  // Get beschrijving from raw_data.custom_field_inputs
   const getBeschrijving = (order: Order | null) => {
-    return order?.custom_field_inputs?.find(f => f.label === 'Beschrijf')?.input || '-';
+    return order?.raw_data?.custom_field_inputs?.find(f => f.label === 'Beschrijf')?.input || '-';
   };
 
-  // Get klant name
+  // Get klant name from raw_data
   const getKlantNaam = (order: Order | null) => {
-    return order?.klant_naam || order?.address?.full_name || '-';
+    return order?.raw_data?.address?.full_name || 
+           (order?.raw_data?.address?.firstname && order?.raw_data?.address?.lastname ? 
+            `${order.raw_data.address.firstname} ${order.raw_data.address.lastname}` : '-');
   };
 
   return (
@@ -92,7 +94,7 @@ function OrderDetailModal({ isOpen, onClose, orderId }: OrderDetailModalProps) {
               <div>{getThema(order)}</div>
               
               <div className="font-medium">Datum:</div>
-              <div>{formatDate(order.bestel_datum)}</div>
+              <div>{formatDate(order.raw_data?.invoice_date || order.raw_data?.created_at || order.bestel_datum)}</div>
               
               <div className="font-medium">Beschrijving:</div>
               <div className="col-span-2 whitespace-pre-wrap border p-2 rounded-md text-sm">{getBeschrijving(order)}</div>

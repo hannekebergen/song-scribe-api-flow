@@ -32,16 +32,18 @@ export interface MappedOrder {
 export function mapOrder(order: Order): MappedOrder {
   // Extract deadline from product title using regex
   // Looking for patterns like "Binnen 24 uur" or "Binnen 48 uur"
-  const deadline = (order.products?.[0]?.title.match(/Binnen\s+(\d+)\s+uur/)?.[1] + ' uur') || '-';
+  const deadline = (order.raw_data?.products?.[0]?.title.match(/Binnen\s+(\d+)\s+uur/)?.[1] + ' uur') || '-';
 
-  // Format date
-  const formattedDate = new Date(order.bestel_datum).toLocaleDateString();
+  // Format date from invoice_date or created_at
+  const formattedDate = new Date(order.raw_data?.invoice_date || order.raw_data?.created_at || order.bestel_datum).toLocaleDateString();
 
   // Extract thema from custom_field_inputs
-  const thema = order.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || '-';
+  const thema = order.raw_data?.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || '-';
 
   // Extract klant name
-  const klant = order.klant_naam || order.address?.full_name || '-';
+  const klant = order.raw_data?.address?.full_name || 
+                (order.raw_data?.address?.firstname && order.raw_data?.address?.lastname ? 
+                 `${order.raw_data.address.firstname} ${order.raw_data.address.lastname}` : '-');
 
   return {
     ordernummer: order.order_id,
