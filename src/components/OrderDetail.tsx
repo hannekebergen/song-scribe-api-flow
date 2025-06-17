@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Download, AlertCircle, CheckCircle, Loader2, ArrowLeft, FileText, Edit3, Save, RotateCcw, Calendar, User, Heart, Music } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { ordersApi } from '@/services/api';
 import { Order } from '@/types';
@@ -131,23 +132,32 @@ const OrderDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Order laden...</div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-lg font-medium text-gray-700">Order laden...</div>
+        </div>
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Order niet gevonden</h1>
-          <Button asChild>
-            <Link to="/dashboard">
-              <Download className="h-4 w-4 mr-2" />
-              Terug naar dashboard
-            </Link>
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="container mx-auto p-6">
+          <div className="text-center py-20">
+            <div className="mb-6">
+              <AlertCircle className="h-16 w-16 mx-auto text-gray-400" />
+            </div>
+            <h1 className="text-2xl font-bold mb-4 text-gray-800">Order niet gevonden</h1>
+            <p className="text-gray-600 mb-8">De opgevraagde order bestaat niet of is niet toegankelijk.</p>
+            <Button asChild className="bg-blue-600 hover:bg-blue-700">
+              <Link to="/dashboard">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Terug naar dashboard
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -156,162 +166,235 @@ const OrderDetail = () => {
   const hasChanges = editedSongtext !== order.songtekst;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <Button asChild variant="outline">
-          <Link to="/dashboard">
-            <Download className="h-4 w-4 mr-2" />
-            Terug naar dashboard
-          </Link>
-        </Button>
-        
-        <div className="flex gap-2">
-          <Button 
-            onClick={() => handleDownload('json')}
-            variant="outline"
-            size="sm"
-          >
-            <AlertCircle className="h-4 w-4 mr-2" />
-            Download JSON
-          </Button>
-          <Button 
-            onClick={() => handleDownload('txt')}
-            variant="outline" 
-            size="sm"
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Download TXT
-          </Button>
-          <Button 
-            onClick={handleRegenerate}
-            disabled={regenerating}
-            size="sm"
-          >
-            <Loader2 className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
-            Hergenereer
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="container mx-auto px-6 py-8 space-y-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center space-x-4">
+            <Button asChild variant="outline" className="border-gray-200 hover:bg-white">
+              <Link to="/dashboard">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Terug naar dashboard
+              </Link>
+            </Button>
+            
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold text-gray-800">
                 Order #{order.order_id}
-                <Badge variant={order.status === 'nieuw' ? 'outline' : 'default'}>
+              </h1>
+              <div className="flex items-center space-x-2">
+                <Badge variant={order.status === 'nieuw' ? 'outline' : 'default'} className="font-medium">
                   {order.status === 'nieuw' ? 'Nieuw' : 'Gegenereerd'}
                 </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Voornaam</label>
-                  <div className="font-medium">{order.voornaam}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Van</label>
-                  <div className="font-medium">{order.van_naam}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Relatie</label>
-                  <div className="font-medium">{order.relatie}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Datum</label>
-                  <div className="font-medium">{new Date(order.datum).toLocaleDateString('nl-NL')}</div>
-                </div>
+                {hasChanges && (
+                  <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
+                    Niet opgeslagen wijzigingen
+                  </Badge>
+                )}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Thema & Stijl</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Thema</label>
-                  <div className="font-medium">{order.thema}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Toon</label>
-                  <div className="font-medium">{order.toon}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Structuur</label>
-                  <div className="font-medium">{order.structuur}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Rijm</label>
-                  <div className="font-medium">{order.rijm}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Beschrijving</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm leading-relaxed">{order.beschrijving}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Persoonlijk verhaal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="text-sm leading-relaxed bg-gray-50 p-3 rounded whitespace-pre-wrap">
-                {order.raw_data?.address?.note ? order.raw_data.address.note : "Geen persoonlijk verhaal meegegeven."}
-              </pre>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={() => handleDownload('json')}
+              variant="outline"
+              size="sm"
+              className="border-gray-200 hover:bg-gray-50"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Download JSON
+            </Button>
+            <Button 
+              onClick={() => handleDownload('txt')}
+              variant="outline" 
+              size="sm"
+              className="border-gray-200 hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download TXT
+            </Button>
+            <Button 
+              onClick={handleRegenerate}
+              disabled={regenerating}
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Loader2 className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
+              Hergenereer
+            </Button>
+          </div>
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Songtekst Editor
-                {hasChanges && (
-                  <Badge variant="outline">Niet opgeslagen wijzigingen</Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                value={editedSongtext}
-                onChange={(e) => setEditedSongtext(e.target.value)}
-                placeholder="Songtekst..."
-                className="min-h-[400px] font-mono text-sm"
-              />
-              
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleSave}
-                  disabled={!hasChanges || saving}
-                  className="flex-1"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {saving ? 'Opslaan...' : 'Opslaan'}
-                </Button>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          {/* Left Column - Order Details */}
+          <div className="space-y-6">
+            {/* Basic Info */}
+            <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-gray-800">
+                  <User className="h-5 w-5 text-blue-600" />
+                  Persoonlijke Gegevens
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-gray-600">Voornaam</label>
+                    <div className="text-lg font-medium text-gray-800">{order.voornaam}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-gray-600">Van</label>
+                    <div className="text-lg font-medium text-gray-800">{order.van_naam}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-gray-600">Relatie</label>
+                    <div className="text-lg font-medium text-gray-800">{order.relatie}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-gray-600">Datum</label>
+                    <div className="flex items-center gap-2 text-lg font-medium text-gray-800">
+                      <Calendar className="h-4 w-4 text-blue-600" />
+                      {new Date(order.datum).toLocaleDateString('nl-NL', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Song Details */}
+            <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-gray-800">
+                  <Music className="h-5 w-5 text-blue-600" />
+                  Song Specificaties
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-gray-600">Thema</label>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium text-base px-3 py-1">
+                      {order.thema}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-gray-600">Toon</label>
+                    <div className="text-lg font-medium text-gray-800">{order.toon}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-gray-600">Structuur</label>
+                    <div className="text-lg font-medium text-gray-800">{order.structuur}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-gray-600">Rijm</label>
+                    <div className="text-lg font-medium text-gray-800">{order.rijm}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Description */}
+            <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-gray-800">
+                  <Heart className="h-5 w-5 text-red-500" />
+                  Beschrijving
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{order.beschrijving}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Personal Story */}
+            <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-gray-800">
+                  <FileText className="h-5 w-5 text-green-600" />
+                  Persoonlijk verhaal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <pre className="text-gray-700 leading-relaxed whitespace-pre-wrap font-sans">
+                    {order.raw_data?.address?.note ? order.raw_data.address.note : "Geen persoonlijk verhaal meegegeven."}
+                  </pre>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - Song Editor */}
+          <div className="space-y-6">
+            <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center justify-between text-gray-800">
+                  <div className="flex items-center gap-2">
+                    <Edit3 className="h-5 w-5 text-purple-600" />
+                    Songtekst Editor
+                  </div>
+                  {hasChanges && (
+                    <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50 animate-pulse">
+                      Niet opgeslagen
+                    </Badge>
+                  )}
+                </CardTitle>
+                <Separator />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <Textarea
+                  value={editedSongtext}
+                  onChange={(e) => setEditedSongtext(e.target.value)}
+                  placeholder="Songtekst..."
+                  className="min-h-[500px] font-mono text-sm leading-relaxed border-gray-200 focus:border-purple-500 focus:ring-purple-500 resize-none"
+                />
                 
-                {hasChanges && (
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button 
-                    variant="outline"
-                    onClick={() => setEditedSongtext(order.songtekst)}
+                    onClick={handleSave}
+                    disabled={!hasChanges || saving}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                   >
-                    Reset
+                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? 'Opslaan...' : 'Opslaan'}
                   </Button>
+                  
+                  {hasChanges && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => setEditedSongtext(order.songtekst)}
+                      className="border-gray-200 hover:bg-gray-50"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Reset
+                    </Button>
+                  )}
+                </div>
+
+                {order.songtekst && order.songtekst.length > 0 && (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">
+                        Status: Songtekst beschikbaar
+                      </span>
+                    </div>
+                    <p className="text-sm text-blue-700">
+                      De songtekst is {order.songtekst.split('\n').length} regels lang en bevat {order.songtekst.length} karakters.
+                    </p>
+                  </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
