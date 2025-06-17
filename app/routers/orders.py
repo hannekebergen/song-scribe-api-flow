@@ -132,55 +132,57 @@ def read_order(
     if order.raw_data:
         # Dictionary om custom fields op te slaan
         custom_fields = {}
+        logger.info(f"Order {order_id}: Starting extraction of custom fields")
         
-        # Functie om custom fields te extraheren uit verschillende formaten
-        def extract_custom_fields(fields_array, field_format="old"):
-            if not isinstance(fields_array, list):
-                return {}
+        # Try to extract from root-level custom_field_inputs (new format)
+        if "custom_field_inputs" in order.raw_data and order.raw_data["custom_field_inputs"]:
+            for field in order.raw_data["custom_field_inputs"]:
+                custom_fields[field["label"]] = field["input"]
+                logger.info(f"Order {order_id}: Found field '{field['label']}' in root-level custom_field_inputs")
+        
+        # Try to extract from root-level custom_fields (old format)
+        if "custom_fields" in order.raw_data and order.raw_data["custom_fields"]:
+            for field_name, field_value in order.raw_data["custom_fields"].items():
+                custom_fields[field_name] = field_value
+                logger.info(f"Order {order_id}: Found field '{field_name}' in root-level custom_fields")
+        
+        # Extract product-level custom fields
+        product_fields_found = False
+        if "products" in order.raw_data and order.raw_data["products"]:
+            logger.info(f"Order {order_id}: Found {len(order.raw_data['products'])} products to check for custom fields")
+            for product_idx, product in enumerate(order.raw_data["products"]):
+                # Try new format (custom_field_inputs)
+                if "custom_field_inputs" in product and product["custom_field_inputs"]:
+                    logger.info(f"Order {order_id}: Product {product_idx} has {len(product['custom_field_inputs'])} custom_field_inputs")
+                    for field in product["custom_field_inputs"]:
+                        custom_fields[field["label"]] = field["input"]
+                        product_fields_found = True
+                        logger.info(f"Order {order_id}: Found field '{field['label']}' in product-level custom_field_inputs")
+                        # Log the content length for description fields to help diagnose issues
+                        if field["label"] in ["Beschrijf", "Persoonlijk verhaal", "Vertel over de gelegenheid"]:
+                            content_length = len(field["input"]) if field["input"] else 0
+                            logger.info(f"Order {order_id}: Field '{field['label']}' has content length of {content_length} characters")
                 
-            extracted = {}
-            for field in fields_array:
-                if not isinstance(field, dict):
-                    continue
-                    
-                # Oude format: name/value
-                if field_format == "old" and "name" in field and "value" in field:
-                    extracted[field["name"]] = field["value"]
-                # Nieuwe format: label/input
-                elif field_format == "new" and "label" in field and "input" in field:
-                    extracted[field["label"]] = field["input"]
-                    
-            return extracted
+                # Try old format (custom_fields)
+                if "custom_fields" in product and product["custom_fields"]:
+                    logger.info(f"Order {order_id}: Product {product_idx} has custom_fields (old format)")
+                    for field_name, field_value in product["custom_fields"].items():
+                        custom_fields[field_name] = field_value
+                        product_fields_found = True
+                        logger.info(f"Order {order_id}: Found field '{field_name}' in product-level custom_fields")
         
-        # Probeer custom_field_inputs (oude format)
-        if "custom_field_inputs" in order.raw_data:
-            old_format = extract_custom_fields(order.raw_data["custom_field_inputs"], "old")
-            custom_fields.update(old_format)
-        
-        # Probeer custom_fields (nieuwe format)
-        if "custom_fields" in order.raw_data:
-            new_format = extract_custom_fields(order.raw_data["custom_fields"], "new")
-            custom_fields.update(new_format)
-            
-        # Probeer product-level custom fields
-        if "products" in order.raw_data and isinstance(order.raw_data["products"], list):
-            for product in order.raw_data["products"]:
-                # Oude format in product
-                if "custom_field_inputs" in product:
-                    product_old = extract_custom_fields(product["custom_field_inputs"], "old")
-                    custom_fields.update(product_old)
-                    
-                # Nieuwe format in product
-                if "custom_fields" in product:
-                    product_new = extract_custom_fields(product["custom_fields"], "new")
-                    custom_fields.update(product_new)
+        # Check if any product-level fields were found
+        if product_fields_found:
+            logger.info(f"Order {order_id}: Successfully found custom fields in products")
+        else:
+            logger.info(f"Order {order_id}: No custom fields found in products")
         
         # Voeg persoonlijk verhaal toe uit address.note als het bestaat
         if "address" in order.raw_data and order.raw_data["address"] and "note" in order.raw_data["address"]:
             note = order.raw_data["address"]["note"]
             if note and len(note.strip()) > 0:
                 custom_fields["Beschrijf"] = note
-                logger.debug(f"Order {order_id}: Persoonlijk verhaal gevonden in address.note")
+                logger.info(f"Order {order_id}: Persoonlijk verhaal gevonden in address.note met lengte {len(note)}")
         
         # Controleer of er een beschrijving is gevonden, zo niet, probeer andere velden
         has_description = False
@@ -271,16 +273,28 @@ def read_order(
             "Vertel": "beschrijving",
         }
         
+        # Log summary of found fields before mapping
+        logger.info(f"Order {order_id}: Found {len(custom_fields)} custom fields in total: {', '.join(custom_fields.keys())}")
+        
         # Wijs custom fields toe aan order attributen
+        mapped_fields = 0
         for field_name, field_value in custom_fields.items():
             # Check of dit veld in onze mapping staat
             if field_name in field_mapping:
                 attr_name = field_mapping[field_name]
                 setattr(order, attr_name, field_value)
-                logger.debug(f"Order {order_id}: Custom field '{field_name}' toegewezen aan '{attr_name}'")
+                mapped_fields += 1
+                logger.info(f"Order {order_id}: Custom field '{field_name}' toegewezen aan '{attr_name}'")
         
         # Log resultaat
         logger.info(f"Order {order_id}: {len(custom_fields)} custom fields verwerkt")
+        
+        # Final verification for critical fields
+        if hasattr(order, 'beschrijving') and order.beschrijving:
+            desc_length = len(order.beschrijving)
+            logger.info(f"Order {order_id}: Final beschrijving field has {desc_length} characters")
+        else:
+            logger.warning(f"Order {order_id}: No beschrijving field was mapped or it's empty")
     
     return order
 
