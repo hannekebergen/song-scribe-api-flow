@@ -33,12 +33,13 @@ class OrderRead(BaseModel):
         - Zorg vervolgens dat 'raw_data' altijd een dict ({} als fallback) is.
         """
         if not isinstance(values, dict):
+            # Bewaar origineel object voor raw_data extractie
+            original_values = values
             # ORM → dict met alleen beschikbare attribs
-            values = {field: getattr(values, field, None)
+            values = {field: getattr(original_values, field, None)
                       for field in cls.model_fields}
             # voeg raw_data apart toe (kan None zijn)
-            values["raw_data"] = getattr(values.get("_sa_instance_state", values), "raw_data", None) \
-                                 or getattr(values, "raw_data", None)
+            values["raw_data"] = getattr(original_values, "raw_data", None)
 
         # raw_data null-safe
         values["raw_data"] = values.get("raw_data") or {}
