@@ -24,7 +24,14 @@ class OrderRead(BaseModel):
     klant_email: Optional[str] = None
     product_naam: str
     bestel_datum: datetime
-    raw_data: Optional[Dict[str, Any]] = None
+    raw_data: Dict[str, Any] = {}
+    
+    @root_validator(pre=True)
+    def ensure_raw_data(cls, values):
+        """Zorgt ervoor dat raw_data nooit None is."""
+        if values.get("raw_data") is None:
+            values["raw_data"] = {}
+        return values
     
     # Custom fields die de frontend verwacht
     songtekst: Optional[str] = None
@@ -43,39 +50,34 @@ class OrderRead(BaseModel):
     @root_validator(pre=True)
     def derive_fields(cls, values):
         """Leidt velden af uit raw_data.custom_field_inputs voor oudere records."""
-        raw = values.get("raw_data", {})
+        # 1. raw_data kan None zijn → fallback naar {}
+        raw = values.get("raw_data") or {}
         
-        # Bouw een dictionary van custom fields op basis van name/label en value/input
+        # 2. Maak dict van custom fields (name/label → value/input)
+        cf_inputs = raw.get("custom_field_inputs", [])
+        if not isinstance(cf_inputs, list):
+            cf_inputs = []
+            
         cfs = {}
-        custom_field_inputs = raw.get("custom_field_inputs", [])
-        if isinstance(custom_field_inputs, list):
-            for cf in custom_field_inputs:
-                name = cf.get("name") or cf.get("label")
-                value = cf.get("value") or cf.get("input")
-                if name and value:
-                    cfs[name] = value
+        for cf in cf_inputs:
+            name = cf.get("name") or cf.get("label")
+            value = cf.get("value") or cf.get("input")
+            if name and value:
+                cfs[name] = value
         
         # Helper functie om fallback waarden te zoeken
-        def fallback(*keys):
+        def pick(*keys):
             return next((cfs[k] for k in keys if k in cfs), None)
         
         # Vul ontbrekende velden in
-        if not values.get("thema"):
-            values["thema"] = fallback("Vertel over de gelegenheid", "Gewenste stijl", "Thema")
+        values.setdefault("thema", pick("Vertel over de gelegenheid", "Gewenste stijl", "Thema"))
+        values.setdefault("toon", pick("Toon", "Sfeer"))
+        values.setdefault("structuur", pick("Structuur", "Song structuur"))
+        values.setdefault("beschrijving", pick("Beschrijf"))
+        values.setdefault("klant_naam", raw.get("address", {}).get("full_name"))
             
-        if not values.get("toon"):
-            values["toon"] = fallback("Toon", "Sfeer")
-            
-        if not values.get("structuur"):
-            values["structuur"] = fallback("Structuur", "Song structuur")
-            
-        if not values.get("beschrijving"):
-            values["beschrijving"] = fallback("Beschrijf")
-            
-        if not values.get("klant_naam"):
-            values["klant_naam"] = raw.get("address", {}).get("full_name")
-            
-        if not values.get("deadline") and "products" in raw and len(raw["products"]) > 0:
+        # deadline afleiden uit product-titel, blijft optioneel
+        if not values.get("deadline") and raw.get("products"):
             title = raw["products"][0].get("title", "")
             if "Binnen" in title and "uur" in title:
                 values["deadline"] = title.replace("Songtekst - ", "")

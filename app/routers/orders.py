@@ -78,8 +78,8 @@ async def get_all_orders(db: Session = Depends(get_db), api_key: str = Depends(g
         Een lijst van alle bestellingen
     """
     try:
-        orders = db.query(Order).all()
-        return orders
+        orders = db.query(Order).order_by(Order.bestel_datum.desc()).all()
+        return JSONResponse(content=[OrderRead.model_validate(o).model_dump() for o in orders])
     except Exception as e:
         logger.error(f"Fout bij ophalen van bestellingen: {str(e)}")
         raise HTTPException(status_code=500, detail="Er is een fout opgetreden bij het ophalen van bestellingen")
@@ -95,8 +95,8 @@ async def get_all_orders_nested(db: Session = Depends(get_db), api_key: str = De
         Een lijst van alle bestellingen
     """
     try:
-        orders = db.query(Order).all()
-        return orders
+        orders = db.query(Order).order_by(Order.bestel_datum.desc()).all()
+        return JSONResponse(content=[OrderRead.model_validate(o).model_dump() for o in orders])
     except Exception as e:
         logger.error(f"Fout bij ophalen van bestellingen (geneste route): {str(e)}")
         raise HTTPException(status_code=500, detail="Er is een fout opgetreden bij het ophalen van bestellingen")
@@ -336,7 +336,7 @@ def read_order(
         else:
             logger.warning(f"Order {order_id}: No beschrijving field was mapped or it's empty")
     
-    return order
+    return JSONResponse(content=OrderRead.model_validate(order).model_dump())
 
 @router.post("/fetch")
 async def fetch_orders(
