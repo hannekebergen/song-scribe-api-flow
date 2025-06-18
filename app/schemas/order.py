@@ -27,8 +27,20 @@ class OrderRead(BaseModel):
     raw_data: Dict[str, Any] = {}
     
     @root_validator(pre=True)
-    def ensure_raw_data(cls, values):
-        """Zorgt ervoor dat raw_data nooit None is."""
+    def ensure_raw_and_dict(cls, values: Any) -> Dict[str, Any]:
+        """
+        - Als 'values' een SQLAlchemy-object is → converteer naar dict via getattr.
+        - Zorg vervolgens dat 'raw_data' altijd een dict ({} als fallback) is.
+        """
+        if not isinstance(values, dict):
+            # ORM → dict met alleen beschikbare attribs
+            values = {field: getattr(values, field, None)
+                      for field in cls.model_fields}
+            # voeg raw_data apart toe (kan None zijn)
+            values["raw_data"] = getattr(values.get("_sa_instance_state", values), "raw_data", None) \
+                                 or getattr(values, "raw_data", None)
+
+        # raw_data null-safe
         values["raw_data"] = values.get("raw_data") or {}
         return values
     
