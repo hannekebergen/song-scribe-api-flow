@@ -60,8 +60,16 @@ class OrderRead(BaseModel):
     deadline: Optional[str] = None
     
     @root_validator(pre=True)
-    def derive_fields(cls, values):
+    def derive_fields(cls, values: Any) -> Dict[str, Any]:
         """Leidt velden af uit raw_data.custom_field_inputs voor oudere records."""
+        # Zorg ervoor dat values een dict is (fallback voor als eerste validator faalt)
+        if not isinstance(values, dict):
+            # Als het nog steeds een Order-object is, converteer het
+            original_values = values
+            values = {field: getattr(original_values, field, None)
+                      for field in cls.model_fields}
+            values["raw_data"] = getattr(original_values, "raw_data", None)
+        
         # Zorg ervoor dat raw_data een dict is
         raw = values.get("raw_data") or {}
         if raw is None:
