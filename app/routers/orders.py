@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, Path
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.db.session import get_db
 from app.models.order import Order
@@ -79,7 +79,16 @@ async def get_all_orders(db: Session = Depends(get_db), api_key: str = Depends(g
     """
     try:
         orders = db.query(Order).order_by(Order.bestel_datum.desc()).all()
-        return JSONResponse(content=[OrderRead.model_validate(o).model_dump() for o in orders])
+        safe_orders = []
+        skipped = 0
+        for o in orders:
+            try:
+                safe_orders.append(OrderRead.model_validate(o).model_dump())
+            except ValidationError as ve:
+                skipped += 1
+                logger.warning(f"Order {o.id} overgeslagen door schema-fout: {str(ve)}")
+        logger.info(f"Total {len(safe_orders)} orders ok, {skipped} skipped")
+        return JSONResponse(content=safe_orders)
     except Exception as e:
         logger.error(f"Fout bij ophalen van bestellingen: {str(e)}")
         raise HTTPException(status_code=500, detail="Er is een fout opgetreden bij het ophalen van bestellingen")
@@ -96,7 +105,16 @@ async def get_all_orders_nested(db: Session = Depends(get_db), api_key: str = De
     """
     try:
         orders = db.query(Order).order_by(Order.bestel_datum.desc()).all()
-        return JSONResponse(content=[OrderRead.model_validate(o).model_dump() for o in orders])
+        safe_orders = []
+        skipped = 0
+        for o in orders:
+            try:
+                safe_orders.append(OrderRead.model_validate(o).model_dump())
+            except ValidationError as ve:
+                skipped += 1
+                logger.warning(f"Order {o.id} overgeslagen door schema-fout: {str(ve)}")
+        logger.info(f"Total {len(safe_orders)} orders ok, {skipped} skipped")
+        return JSONResponse(content=safe_orders)
     except Exception as e:
         logger.error(f"Fout bij ophalen van bestellingen (geneste route): {str(e)}")
         raise HTTPException(status_code=500, detail="Er is een fout opgetreden bij het ophalen van bestellingen")

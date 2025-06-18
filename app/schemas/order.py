@@ -12,8 +12,8 @@ class OrderBase(BaseModel):
     order_id: int
     klant_naam: Optional[str] = None
     klant_email: Optional[str] = None
-    product_naam: str
-    bestel_datum: datetime
+    product_naam: Optional[str] = None
+    bestel_datum: Optional[datetime] = None
 
 
 class OrderRead(BaseModel):
@@ -22,15 +22,14 @@ class OrderRead(BaseModel):
     order_id: int
     klant_naam: Optional[str] = None
     klant_email: Optional[str] = None
-    product_naam: str
-    bestel_datum: datetime
+    product_naam: Optional[str] = None
+    bestel_datum: Optional[datetime] = None
     raw_data: Dict[str, Any] = {}
     
     @root_validator(pre=True)
     def ensure_raw_data(cls, values):
         """Zorgt ervoor dat raw_data nooit None is."""
-        if values.get("raw_data") is None:
-            values["raw_data"] = {}
+        values["raw_data"] = values.get("raw_data") or {}
         return values
     
     # Custom fields die de frontend verwacht
@@ -50,36 +49,50 @@ class OrderRead(BaseModel):
     @root_validator(pre=True)
     def derive_fields(cls, values):
         """Leidt velden af uit raw_data.custom_field_inputs voor oudere records."""
-        # 1. raw_data kan None zijn → fallback naar {}
+        # Zorg ervoor dat raw_data een dict is
         raw = values.get("raw_data") or {}
+        if raw is None:
+            raw = {}
+        values["raw_data"] = raw
         
-        # 2. Maak dict van custom fields (name/label → value/input)
-        cf_inputs = raw.get("custom_field_inputs", [])
-        if not isinstance(cf_inputs, list):
-            cf_inputs = []
-            
-        cfs = {}
-        for cf in cf_inputs:
-            name = cf.get("name") or cf.get("label")
-            value = cf.get("value") or cf.get("input")
-            if name and value:
-                cfs[name] = value
+        # Helper functie om custom fields te verzamelen
+        def cf_dict():
+            lst = raw.get("custom_field_inputs") or []
+            return { (c.get("name") or c.get("label")): (c.get("value") or c.get("input"))
+                     for c in lst if isinstance(c, dict) }
+        
+        cfs = cf_dict()
         
         # Helper functie om fallback waarden te zoeken
         def pick(*keys):
             return next((cfs[k] for k in keys if k in cfs), None)
         
         # Vul ontbrekende velden in
-        values.setdefault("thema", pick("Vertel over de gelegenheid", "Gewenste stijl", "Thema"))
+        values.setdefault("thema", pick("Thema", "Gelegenheid", "Vertel over de gelegenheid"))
         values.setdefault("toon", pick("Toon", "Sfeer"))
         values.setdefault("structuur", pick("Structuur", "Song structuur"))
-        values.setdefault("beschrijving", pick("Beschrijf"))
+        values.setdefault("beschrijving", pick("Beschrijf", "Persoonlijk verhaal"))
         values.setdefault("klant_naam", raw.get("address", {}).get("full_name"))
             
+        # Fallbacks voor kritieke DB-velden
+        products = raw.get("products", [])
+        if values.get("product_naam") is None and products and len(products) > 0:
+            first_product = products[0]
+            values["product_naam"] = first_product.get("title") or first_product.get("name") or "Onbekend product"
+        
+        if values.get("bestel_datum") is None:
+            # Probeer ISO-date uit raw_data.created_at
+            iso = raw.get("created_at")
+            if not iso and products and len(products) > 0:
+                # Anders uit eerste product.created_at
+                iso = products[0].get("created_at")
+            if iso:
+                values["bestel_datum"] = iso  # laat Pydantic casten
+        
         # deadline afleiden uit product-titel, blijft optioneel
-        if not values.get("deadline") and raw.get("products"):
-            title = raw["products"][0].get("title", "")
-            if "Binnen" in title and "uur" in title:
+        if not values.get("deadline") and products and len(products) > 0:
+            title = products[0].get("title", "")
+            if isinstance(title, str) and "Binnen" in title and "uur" in title:
                 values["deadline"] = title.replace("Songtekst - ", "")
         
         return values
