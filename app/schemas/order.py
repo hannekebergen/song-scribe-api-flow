@@ -57,6 +57,7 @@ class OrderRead(BaseModel):
     structuur: Optional[str] = None
     rijm: Optional[str] = None
     beschrijving: Optional[str] = None
+    persoonlijk_verhaal: Optional[str] = None
     deadline: Optional[str] = None
     
     @root_validator(pre=True)
@@ -101,8 +102,9 @@ class OrderRead(BaseModel):
         values.setdefault("thema", pick("Thema", "Gelegenheid", "Vertel over de gelegenheid"))
         values.setdefault("toon", pick("Toon", "Sfeer"))
         values.setdefault("structuur", pick("Structuur", "Song structuur"))
-        values.setdefault("beschrijving", combine_fields("Beschrijf", "Persoonlijk verhaal", "Vertel over de gelegenheid"))
+        values.setdefault("beschrijving", pick("Beschrijf"))
         values.setdefault("klant_naam", raw.get("address", {}).get("full_name"))
+        values.setdefault("persoonlijk_verhaal", pick("Persoonlijk verhaal"))
             
         # Fallbacks voor kritieke DB-velden
         products = raw.get("products", [])
