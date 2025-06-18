@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +10,7 @@ import PersonalInfoCard from './order-detail/PersonalInfoCard';
 import SongDetailsCard from './order-detail/SongDetailsCard';
 import DescriptionCard from './order-detail/DescriptionCard';
 import SongEditor from './order-detail/SongEditor';
+import AIPromptCard from './order-detail/AIPromptCard';
 
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +20,7 @@ const OrderDetail = () => {
   const [editedSongtext, setEditedSongtext] = useState('');
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const songtextRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (id) {
@@ -131,6 +132,23 @@ const OrderDetail = () => {
     }
   };
 
+  const handleCopyToSongtext = (prompt: string) => {
+    setEditedSongtext(prompt);
+    
+    // Focus on the songtext editor after a brief delay
+    setTimeout(() => {
+      if (songtextRef.current) {
+        songtextRef.current.focus();
+        songtextRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+
+    toast({
+      title: "Gekopieerd",
+      description: "Prompt is gekopieerd naar de songtekst editor",
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
@@ -235,9 +253,11 @@ const OrderDetail = () => {
             <DescriptionCard order={order} />
           </div>
 
-          {/* Right Column - Song Editor */}
+          {/* Right Column - AI Prompt and Song Editor */}
           <div className="space-y-6">
+            <AIPromptCard onCopyToSongtext={handleCopyToSongtext} />
             <SongEditor
+              ref={songtextRef}
               editedSongtext={editedSongtext}
               setEditedSongtext={setEditedSongtext}
               hasChanges={hasChanges}

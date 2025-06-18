@@ -1,111 +1,104 @@
 
-import { Link } from 'react-router-dom';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, Users, FileText, BarChart3 } from 'lucide-react';
+import { MusicIcon, UsersIcon, FileTextIcon, BarChartIcon } from '@/components/icons/IconComponents';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-16">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="container mx-auto px-6 py-12">
+        {/* Hero Section */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            JouwSong.nl
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-6">
+            JouwSong
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Beheer je gepersonaliseerde songtekstorders met ons moderne dashboard
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            Ontdek de toekomst van muziek met onze AI-gedreven songwriting platform. 
+            Transformeer ideeën in prachtige liedjes met geavanceerde kunstmatige intelligentie.
           </p>
-          
-          <Button asChild size="lg" className="text-lg px-8 py-6">
+          <div className="space-x-4">
+            <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
+              <Link to="/dashboard">
+                <BarChartIcon className="h-5 w-5 mr-2" />
+                Dashboard
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link to="/orders">
+                <FileTextIcon className="h-5 w-5 mr-2" />
+                Bestellingen
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MusicIcon className="h-6 w-6 text-blue-600" />
+                AI Songwriting
+              </CardTitle>
+              <CardDescription>
+                Geavanceerde AI-algoritmen creëren unieke liedjes op basis van jouw input
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">
+                Onze intelligente systemen analyseren je wensen en maken gepersonaliseerde songteksten die perfect aansluiten bij je verhaal.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UsersIcon className="h-6 w-6 text-green-600" />
+                Persoonlijk & Uniek
+              </CardTitle>
+              <CardDescription>
+                Elk lied wordt speciaal voor jou gemaakt met persoonlijke details
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">
+                Voeg persoonlijke verhalen, herinneringen en emoties toe om een lied te creëren dat echt van jou is.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileTextIcon className="h-6 w-6 text-purple-600" />
+                Eenvoudig Proces
+              </CardTitle>
+              <CardDescription>
+                Van idee tot lied in enkele stappen
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">
+                Vertel ons over je wensen, kies je stijl, en laat onze AI de magie gebeuren. Binnen minuten heb je jouw unieke lied.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* CTA Section */}
+        <div className="text-center bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-12 text-white">
+          <h2 className="text-3xl font-bold mb-4">Klaar om je verhaal te vertellen?</h2>
+          <p className="text-xl mb-8 opacity-90">
+            Begin vandaag nog met het maken van jouw gepersonaliseerde lied
+          </p>
+          <Button asChild size="lg" variant="secondary" className="bg-white text-blue-600 hover:bg-gray-100">
             <Link to="/dashboard">
-              <BarChart3 className="mr-2 h-5 w-5" />
-              Open Dashboard
+              Start Nu
             </Link>
           </Button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="text-center">
-              <Music className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <CardTitle>Songtekst Beheer</CardTitle>
-              <CardDescription>
-                Beheer alle orders en gegenereerde songteksten op één plek
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>• Order overzicht en filtering</li>
-                <li>• Real-time status updates</li>
-                <li>• Zoeken op voornaam</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="text-center">
-              <FileText className="h-12 w-12 text-green-600 mx-auto mb-4" />
-              <CardTitle>Editor & Downloads</CardTitle>
-              <CardDescription>
-                Edit songteksten en download in verschillende formaten
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>• Ingebouwde tekst editor</li>
-                <li>• JSON en TXT downloads</li>
-                <li>• Auto-save functionaliteit</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="text-center">
-              <Users className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-              <CardTitle>API Integratie</CardTitle>
-              <CardDescription>
-                Klaar voor koppeling met jouw Python backend
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>• REST API endpoints</li>
-                <li>• Webhook ondersteuning</li>
-                <li>• Mock data voor development</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mt-16 text-center">
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle className="text-2xl">Klaar voor Productie</CardTitle>
-              <CardDescription>
-                Dit dashboard is gebouwd met moderne technologieën en klaar voor deployment
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="font-semibold">React 18</div>
-                  <div className="text-gray-600">Modern framework</div>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="font-semibold">TypeScript</div>
-                  <div className="text-gray-600">Type safety</div>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="font-semibold">Tailwind CSS</div>
-                  <div className="text-gray-600">Responsive design</div>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="font-semibold">shadcn/ui</div>
-                  <div className="text-gray-600">Modern components</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

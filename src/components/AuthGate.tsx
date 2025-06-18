@@ -1,115 +1,52 @@
 
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { XIcon } from '@/components/icons/IconComponents';
+import { useToast } from '@/hooks/use-toast';
 
-interface AuthGateProps {
-  children: React.ReactNode;
-}
-
-const CORRECT_PASSWORD = 'Drijfveer123!';
-const AUTH_KEY = 'jouwsong_authenticated';
-
-const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
+const AuthGate = ({ children }: { children: React.ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [apiKey, setApiKey] = useState('');
+  const { toast } = useToast();
 
-  useEffect(() => {
-    // Check if user is already authenticated
-    const storedAuth = localStorage.getItem(AUTH_KEY);
-    if (storedAuth === 'true') {
+  const handleLogin = () => {
+    if (apiKey.trim() === 'jouwsong2025') {
       setIsAuthenticated(true);
-    }
-    setLoading(false);
-  }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (password === CORRECT_PASSWORD) {
-      setIsAuthenticated(true);
-      localStorage.setItem(AUTH_KEY, 'true');
-      setError('');
+      toast({
+        title: "Succesvol ingelogd",
+        description: "Welkom bij JouwSong Dashboard",
+      });
     } else {
-      setError('Onjuist wachtwoord. Probeer opnieuw.');
-      setPassword('');
+      toast({
+        title: "Fout",
+        description: "Ongeldige API sleutel",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem(AUTH_KEY);
-    setPassword('');
-    setError('');
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Laden...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">JouwSong.nl</CardTitle>
-            <p className="text-muted-foreground">Voer het wachtwoord in om door te gaan</p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
-                  Wachtwoord
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Voer wachtwoord in"
-                  required
-                />
-              </div>
-              
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <Button type="submit" className="w-full">
-                Inloggen
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  if (isAuthenticated) {
+    return <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="absolute top-4 right-4 z-50">
-        <Button
-          onClick={handleLogout}
-          variant="outline"
-          size="sm"
-          className="bg-white/80 backdrop-blur-sm"
-        >
-          <X className="h-4 w-4 mr-2" />
-          Uitloggen
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+        <h1 className="text-2xl font-bold mb-6 text-center">JouwSong Dashboard</h1>
+        <div className="space-y-4">
+          <input
+            type="password"
+            placeholder="API Sleutel"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            className="w-full p-3 border rounded-lg"
+            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+          />
+          <Button onClick={handleLogin} className="w-full">
+            Inloggen
+          </Button>
+        </div>
       </div>
-      {children}
     </div>
   );
 };

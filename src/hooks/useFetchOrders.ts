@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { ordersApi } from '@/services/api';
 import { Order } from '@/types';
@@ -8,6 +9,7 @@ export interface MappedOrder {
   thema: string;
   klant: string;
   deadline: string;
+  typeOrder: string;
   originalOrder: Order;
 }
 
@@ -37,13 +39,17 @@ export const useFetchOrders = () => {
 
     // Create a synthetic deadline field for spoed detection
     const deadline = getCustomFieldValue('deadline') || 'standaard';
+    
+    // Determine order type based on available data
+    const typeOrder = order.songtekst ? 'Songtekst' : 'Prompt';
 
     return {
       ordernummer: order.order_id || order.id,
       datum: new Date(order.bestel_datum).toLocaleDateString('nl-NL'),
       thema: order.thema || getCustomFieldValue('Thema') || 'Onbekend',
       klant: order.voornaam || order.klant_naam || order.raw_data?.address?.firstname || 'Onbekend',
-      deadline, // Add the deadline field
+      deadline,
+      typeOrder,
       originalOrder: order
     };
   };

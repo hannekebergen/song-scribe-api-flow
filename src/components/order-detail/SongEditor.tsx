@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ interface SongEditorProps {
   onReset: () => void;
 }
 
-const SongEditor: React.FC<SongEditorProps> = ({
+const SongEditor = forwardRef<HTMLTextAreaElement, SongEditorProps>(({
   editedSongtext,
   setEditedSongtext,
   hasChanges,
@@ -25,7 +25,7 @@ const SongEditor: React.FC<SongEditorProps> = ({
   originalSongtext,
   onSave,
   onReset
-}) => {
+}, ref) => {
   return (
     <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm">
       <CardHeader className="pb-4">
@@ -44,6 +44,7 @@ const SongEditor: React.FC<SongEditorProps> = ({
       </CardHeader>
       <CardContent className="space-y-6">
         <Textarea
+          ref={ref}
           value={editedSongtext}
           onChange={(e) => setEditedSongtext(e.target.value)}
           placeholder="Songtekst..."
@@ -88,6 +89,8 @@ const SongEditor: React.FC<SongEditorProps> = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+SongEditor.displayName = "SongEditor";
 
 export default SongEditor;
