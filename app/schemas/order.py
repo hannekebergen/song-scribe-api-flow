@@ -88,11 +88,20 @@ class OrderRead(BaseModel):
         def pick(*keys):
             return next((cfs[k] for k in keys if k in cfs), None)
         
+        # Helper functie om meerdere custom fields te combineren
+        def combine_fields(*keys):
+            """Combineert meerdere custom field waarden tot één string."""
+            values_found = []
+            for key in keys:
+                if key in cfs and cfs[key] and cfs[key].strip():
+                    values_found.append(cfs[key].strip())
+            return " ".join(values_found) if values_found else None
+        
         # Vul ontbrekende velden in
         values.setdefault("thema", pick("Thema", "Gelegenheid", "Vertel over de gelegenheid"))
         values.setdefault("toon", pick("Toon", "Sfeer"))
         values.setdefault("structuur", pick("Structuur", "Song structuur"))
-        values.setdefault("beschrijving", pick("Beschrijf", "Persoonlijk verhaal"))
+        values.setdefault("beschrijving", combine_fields("Beschrijf", "Persoonlijk verhaal", "Vertel over de gelegenheid"))
         values.setdefault("klant_naam", raw.get("address", {}).get("full_name"))
             
         # Fallbacks voor kritieke DB-velden
