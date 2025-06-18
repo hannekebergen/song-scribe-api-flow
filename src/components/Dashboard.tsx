@@ -42,11 +42,30 @@ const Dashboard = () => {
     setFilteredOrders(filtered);
   };
 
-  const getStatusBadge = (deadline: string) => {
-    return deadline.includes('uur') ? (
-      <Badge variant="destructive" className="font-medium">Spoed</Badge>
+  const getTypeOrderBadge = (order: MappedOrder) => {
+    const isSpoed = order.deadline.includes('uur');
+    return isSpoed ? (
+      <Badge variant="destructive" className="font-medium">
+        🚀 Spoed
+      </Badge>
     ) : (
-      <Badge variant="secondary" className="font-medium">Standaard</Badge>
+      <Badge variant="secondary" className="font-medium bg-blue-100 text-blue-800">
+        📝 Standaard
+      </Badge>
+    );
+  };
+
+  const getPromptStatusBadge = (order: MappedOrder) => {
+    const hasPrompt = order.originalOrder.songtekst && order.originalOrder.songtekst.trim().length > 0;
+    
+    return hasPrompt ? (
+      <Badge variant="default" className="font-medium bg-green-100 text-green-800 border-green-200">
+        🖋️ Prompt gereed
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="font-medium text-gray-600 border-gray-300">
+        Prompt ontbreekt
+      </Badge>
     );
   };
 
@@ -260,6 +279,7 @@ const Dashboard = () => {
                 <TableHeader>
                   <TableRow className="bg-gray-50 border-b">
                     <TableHead className="font-semibold text-gray-700">Ordernummer</TableHead>
+                    <TableHead className="font-semibold text-gray-700">Type Order</TableHead>
                     <TableHead className="font-semibold text-gray-700">Datum</TableHead>
                     <TableHead className="font-semibold text-gray-700">Thema</TableHead>
                     <TableHead className="font-semibold text-gray-700">Klant</TableHead>
@@ -273,6 +293,7 @@ const Dashboard = () => {
                       <TableCell className="font-mono text-sm font-medium text-blue-600">
                         #{order.ordernummer}
                       </TableCell>
+                      <TableCell>{getTypeOrderBadge(order)}</TableCell>
                       <TableCell className="text-gray-600">{order.datum}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium">
@@ -280,7 +301,7 @@ const Dashboard = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium text-gray-800">{order.klant}</TableCell>
-                      <TableCell>{getStatusBadge(order.deadline)}</TableCell>
+                      <TableCell>{getPromptStatusBadge(order)}</TableCell>
                       <TableCell>
                         <Button asChild variant="outline" size="sm" className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300">
                           <Link to={`/orders/${order.ordernummer}`}>
