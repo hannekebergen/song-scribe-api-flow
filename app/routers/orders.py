@@ -215,6 +215,7 @@ def read_order(
             "Voor welke gelegenheid": "thema",
             "Voor welke gelegenheid?": "thema",
             "Waarvoor is dit lied?": "thema",
+            "Vertel over de gelegenheid": "thema",
             
             # Toon varianten
             "Toon": "toon",
@@ -232,10 +233,7 @@ def read_order(
             
             # Beschrijving varianten
             "Beschrijf": "beschrijving",
-            "Persoonlijk verhaal": "beschrijving",
-            "Vertel iets over deze persoon": "beschrijving",
             "Toelichting": "beschrijving",
-            "Vertel over de gelegenheid": "beschrijving",
             "Vertel over de persoon": "beschrijving",
             "Vertel over deze persoon": "beschrijving",
             "Vertel over je wensen": "beschrijving",
@@ -243,6 +241,10 @@ def read_order(
             "Vertel je verhaal": "beschrijving",
             "Vertel meer": "beschrijving",
             "Vertel": "beschrijving",
+            
+            # Persoonlijk verhaal varianten
+            "Persoonlijk verhaal": "persoonlijk_verhaal",
+            "Vertel iets over deze persoon": "persoonlijk_verhaal",
         }
         
         # Log summary of found fields before mapping
