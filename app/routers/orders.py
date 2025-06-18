@@ -84,7 +84,7 @@ async def get_all_orders(db: Session = Depends(get_db), api_key: str = Depends(g
         skipped = 0
         for o in orders:
             try:
-                safe_orders.append(OrderRead.model_validate(o).model_dump())
+                safe_orders.append(OrderRead.model_validate(o).model_dump(mode='json'))
             except ValidationError as ve:
                 skipped += 1
                 logger.warning(f"Order {o.id} overgeslagen door schema-fout: {str(ve)}")
@@ -126,7 +126,7 @@ async def get_all_orders_nested(db: Session = Depends(get_db), api_key: str = De
         skipped = 0
         for o in orders:
             try:
-                safe_orders.append(OrderRead.model_validate(o).model_dump())
+                safe_orders.append(OrderRead.model_validate(o).model_dump(mode='json'))
             except ValidationError as ve:
                 skipped += 1
                 logger.warning(f"Order {o.id} overgeslagen door schema-fout: {str(ve)}")
@@ -269,7 +269,7 @@ def read_order(
             logger.warning(f"Order {order_id}: No beschrijving field was mapped or it's empty")
     
     return JSONResponse(
-        content=OrderRead.model_validate(order).model_dump(),
+        content=OrderRead.model_validate(order).model_dump(mode='json'),
         headers={"Content-Type": "application/json; charset=utf-8"}
     )
 
