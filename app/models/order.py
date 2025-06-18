@@ -30,6 +30,13 @@ class Order(Base):
     bestel_datum = Column(DateTime, default=datetime.utcnow)
     raw_data = Column(JSONB, nullable=True)
     
+    # Afgeleide velden uit custom fields
+    thema = Column(String, nullable=True)
+    toon = Column(String, nullable=True)
+    structuur = Column(String, nullable=True)
+    beschrijving = Column(String, nullable=True)
+    deadline = Column(String, nullable=True)
+    
     # Voeg een unieke constraint toe op order_id
     __table_args__ = (
         UniqueConstraint('order_id', name='uix_order_id'),
@@ -77,15 +84,36 @@ class Order(Base):
             # if not customer.get("name"):
             #     raise ValueError("Bestelling heeft geen klantnaam")
             
+            # Haal custom fields op als die aanwezig zijn
+            custom = {}
+            custom_field_inputs = order_data.get("custom_field_inputs", [])
+            for field in custom_field_inputs:
+                name = field.get("name") or field.get("label")
+                value = field.get("value") or field.get("input")
+                if name and value:
+                    custom[name] = value
+            
+            # Helper functie om waarden uit custom fields te halen
+            def pick(*keys):
+                for k in keys:
+                    if k in custom:
+                        return custom[k]
+                return None
+            
             # Maak een nieuw Order object aan
             new_order = cls(
                 order_id=order_data.get("id"),
-                klant_naam=customer.get("name"),  # Kan None zijn
+                klant_naam=customer.get("name") or order_data.get("address", {}).get("full_name"),  # Kan None zijn
                 klant_email=customer.get("email", "onbekend@example.com"),
                 product_naam=products[0].get("name", "Onbekend product") if products else "Onbekend product",
                 bestel_datum=datetime.fromisoformat(order_data.get("created_at").replace("Z", "+00:00")) 
                             if order_data.get("created_at") else datetime.utcnow(),
-                raw_data=order_data  # Sla de volledige Plug&Pay payload op
+                raw_data=order_data,  # Sla de volledige Plug&Pay payload op
+                thema=pick("Vertel over de gelegenheid", "Gewenste stijl", "Thema"),
+                toon=pick("Toon", "Sfeer"),
+                structuur=pick("Structuur", "Song structuur"),
+                beschrijving=pick("Beschrijf"),
+                deadline=products[0].get("title", "").replace("Songtekst - ", "") if products else None
             )
             
             # Voeg het nieuwe object toe aan de database

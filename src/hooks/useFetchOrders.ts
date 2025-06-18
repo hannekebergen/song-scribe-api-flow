@@ -25,32 +25,57 @@ export interface MappedOrder {
  */
 
 /**
+ * Helper function to find a custom field value by multiple possible keys
+ * @param order The order object
+ * @param keys Array of possible field names to look for
+ * @returns The found value or a default value
+ */
+const cf = (order: Order, ...keys: string[]): string => {
+  if (!order.raw_data?.custom_field_inputs) return '-';
+  
+  const field = order.raw_data.custom_field_inputs.find(
+    (f: any) => keys.includes(f.name || f.label)
+  );
+  
+  return (field?.value || field?.input || '-');
+};
+
+/**
  * Maps a raw order to the display format with datum, thema, klant, and deadline fields
  * @param order The raw order to map
  * @returns The mapped order with display fields
  */
 export function mapOrder(order: Order): MappedOrder {
-  // Extract deadline from product title using regex
-  // Looking for patterns like "Binnen 24 uur" or "Binnen 48 uur"
-  const deadline = (order.raw_data?.products?.[0]?.title.match(/Binnen\s+(\d+)\s+uur/)?.[1] + ' uur') || '-';
-
   // Format date from invoice_date or created_at
-  const formattedDate = new Date(order.raw_data?.invoice_date || order.raw_data?.created_at || order.bestel_datum).toLocaleDateString();
+  const formattedDate = new Date(order.raw_data?.invoice_date || order.raw_data?.created_at || order.bestel_datum).toLocaleDateString('nl-NL');
 
-  // Extract thema from custom_field_inputs
-  const thema = order.raw_data?.custom_field_inputs?.find(f => f.label === 'Gewenste stijl')?.input || '-';
-
-  // Extract klant name
-  const klant = order.raw_data?.address?.full_name || 
+  // Use the API-derived fields with fallback to custom fields
+  const thema = order.thema || cf(order, 'Vertel over de gelegenheid', 'Gewenste stijl', 'Thema');
+  
+  // Use the API-derived fields with fallback to custom fields
+  const toon = order.toon || cf(order, 'Toon', 'Sfeer');
+  
+  // Extract klant name with multiple fallbacks
+  const klant = order.klant_naam || 
+                order.raw_data?.address?.full_name || 
                 (order.raw_data?.address?.firstname && order.raw_data?.address?.lastname ? 
                  `${order.raw_data.address.firstname} ${order.raw_data.address.lastname}` : '-');
+  
+  // Use the API-derived deadline or extract from product title
+  let deadline = order.deadline;
+  if (!deadline && order.raw_data?.products?.[0]?.title) {
+    const match = order.raw_data.products[0].title.match(/Binnen\s+(\d+)\s+uur/);
+    if (match) {
+      deadline = match[1] + ' uur';
+    }
+  }
 
   return {
     ordernummer: order.order_id,
     datum: formattedDate,
-    thema: thema,
-    klant: klant,
-    deadline: deadline,
+    thema: thema || '-',
+    klant: klant || '-',
+    deadline: deadline || '-',
     originalOrder: order
   };
 }
