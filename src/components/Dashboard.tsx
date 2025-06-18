@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Eye, BarChart3, Clock, Users, TrendingUp } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -96,7 +95,7 @@ const Dashboard = () => {
             <p className="text-gray-600">Beheer je bestellingen en houd statistieken bij</p>
           </div>
           <div className="flex items-center space-x-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-full shadow-sm border">
-            <BarChart3 className="h-4 w-4" />
+            <LucideIcons.BarChart3 className="h-4 w-4" />
             <span className="font-medium">{filteredOrders.length} van {mappedOrders?.length || 0} orders</span>
           </div>
         </div>
@@ -111,7 +110,7 @@ const Dashboard = () => {
                   <p className="text-3xl font-bold">{mappedOrders?.length || 0}</p>
                 </div>
                 <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-full flex items-center justify-center">
-                  <BarChart3 className="h-6 w-6" />
+                  <LucideIcons.BarChart3 className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
@@ -125,7 +124,7 @@ const Dashboard = () => {
                   <p className="text-3xl font-bold">{stats.spoedOrders}</p>
                 </div>
                 <div className="h-12 w-12 bg-orange-400 bg-opacity-30 rounded-full flex items-center justify-center">
-                  <Clock className="h-6 w-6" />
+                  <LucideIcons.Clock className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
@@ -139,7 +138,7 @@ const Dashboard = () => {
                   <p className="text-3xl font-bold">{stats.uniqueThemas}</p>
                 </div>
                 <div className="h-12 w-12 bg-green-400 bg-opacity-30 rounded-full flex items-center justify-center">
-                  <Users className="h-6 w-6" />
+                  <LucideIcons.Users className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
@@ -153,7 +152,7 @@ const Dashboard = () => {
                   <p className="text-3xl font-bold">{stats.recentOrders}</p>
                 </div>
                 <div className="h-12 w-12 bg-purple-400 bg-opacity-30 rounded-full flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6" />
+                  <LucideIcons.TrendingUp className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
@@ -172,7 +171,7 @@ const Dashboard = () => {
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-gray-800">
-                  <Filter className="h-5 w-5 text-blue-600" />
+                  <LucideIcons.Filter className="h-5 w-5 text-blue-600" />
                   Filters & Zoeken
                 </CardTitle>
               </CardHeader>
@@ -181,7 +180,7 @@ const Dashboard = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-gray-700">Zoek op klantnaam</label>
                     <div className="relative">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <LucideIcons.Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         placeholder="Klantnaam..."
                         value={searchTerm}
@@ -194,8 +193,12 @@ const Dashboard = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-gray-700">Thema</label>
                     <Select value={themaFilter} onValueChange={setThemaFilter}>
-                      <SelectTrigger className="border-gray-200 focus:border-blue-500 focus:ring-blue-500">
-                        <SelectValue placeholder="Alle themas" />
+                      <SelectTrigger 
+                        aria-label="Open selectie voor thema" 
+                        className="border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      >
+                        <SelectValue placeholder="Alle thema's" />
+                        <span className="sr-only">Open dropdown voor thema selectie</span>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Alle themas</SelectItem>
@@ -209,8 +212,12 @@ const Dashboard = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-gray-700">Status</label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                      <SelectTrigger 
+                        aria-label="Open selectie voor status" 
+                        className="border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      >
                         <SelectValue placeholder="Alle statussen" />
+                        <span className="sr-only">Open dropdown voor status selectie</span>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Alle statussen</SelectItem>
@@ -277,7 +284,7 @@ const Dashboard = () => {
                       <TableCell>
                         <Button asChild variant="outline" size="sm" className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300">
                           <Link to={`/orders/${order.ordernummer}`}>
-                            <Eye className="h-4 w-4 mr-2" />
+                            <LucideIcons.Eye className="h-4 w-4 mr-2" />
                             Bekijk
                           </Link>
                         </Button>
@@ -290,7 +297,7 @@ const Dashboard = () => {
               {filteredOrders.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
                   <div className="mb-4">
-                    <Search className="h-12 w-12 mx-auto text-gray-300" />
+                    <LucideIcons.Search className="h-12 w-12 mx-auto text-gray-300" />
                   </div>
                   <p className="text-lg font-medium">Geen orders gevonden</p>
                   <p className="text-sm">Probeer je zoekfilters aan te passen</p>
