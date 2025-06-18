@@ -103,9 +103,17 @@ class OrderRead(BaseModel):
         values.setdefault("toon", pick("Toon", "Sfeer"))
         values.setdefault("structuur", pick("Structuur", "Song structuur"))
         values.setdefault("beschrijving", pick("Beschrijf"))
-        values.setdefault("klant_naam", raw.get("address", {}).get("full_name"))
+        
+        # Klant informatie uit address
+        address = raw.get("address", {})
+        values.setdefault("klant_naam", address.get("full_name"))
+        values.setdefault("voornaam", address.get("firstname"))
         values.setdefault("persoonlijk_verhaal", pick("Persoonlijk verhaal"))
-            
+        
+        # Datum uit created_at
+        if not values.get("datum") and raw.get("created_at"):
+            values["datum"] = raw.get("created_at")
+        
         # Fallbacks voor kritieke DB-velden
         products = raw.get("products", [])
         if values.get("product_naam") is None and products and len(products) > 0:
