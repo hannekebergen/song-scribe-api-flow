@@ -94,7 +94,10 @@ async def get_all_orders(db: Session = Depends(get_db), api_key: str = Depends(g
             headers={"Content-Type": "application/json; charset=utf-8"}
         )
     except sa_exc.ProgrammingError as pe:
-        if "column orders.thema does not exist" in str(pe) or "UndefinedColumn" in str(pe.__class__):
+        error_msg = str(pe)
+        if ("column orders.thema does not exist" in error_msg or 
+            "column orders.persoonlijk_verhaal does not exist" in error_msg or 
+            "UndefinedColumn" in str(pe.__class__)):
             logger.error("DB-kolom ontbreekt – heeft migration al gedraaid? %s", pe)
             return JSONResponse(
                 status_code=500,
@@ -136,7 +139,10 @@ async def get_all_orders_nested(db: Session = Depends(get_db), api_key: str = De
             headers={"Content-Type": "application/json; charset=utf-8"}
         )
     except sa_exc.ProgrammingError as pe:
-        if "column orders.thema does not exist" in str(pe) or "UndefinedColumn" in str(pe.__class__):
+        error_msg = str(pe)
+        if ("column orders.thema does not exist" in error_msg or 
+            "column orders.persoonlijk_verhaal does not exist" in error_msg or 
+            "UndefinedColumn" in str(pe.__class__)):
             logger.error("DB-kolom ontbreekt – heeft migration al gedraaid? %s", pe)
             return JSONResponse(
                 status_code=500,
