@@ -30,6 +30,13 @@ export interface Order {
       id?: number;
       title?: string; 
       name?: string;
+      custom_field_inputs?: Array<{
+        id?: number;
+        label?: string;
+        input?: string;
+        product_id?: number;
+        public_label?: string;
+      }>;
       pivot?: {
         type?: string | null;
         order_id?: number;
@@ -66,6 +73,13 @@ export interface Order {
     id?: number;
     title?: string; 
     name?: string;
+    custom_field_inputs?: Array<{
+      id?: number;
+      label?: string;
+      input?: string;
+      product_id?: number;
+      public_label?: string;
+    }>;
     pivot?: {
       type?: string | null;
       order_id?: number;

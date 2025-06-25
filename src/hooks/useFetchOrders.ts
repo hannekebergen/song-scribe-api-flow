@@ -49,11 +49,23 @@ export const useFetchOrders = () => {
       });
     }
 
-    // Enhanced custom field extraction that handles both old and new formats
+    // Enhanced custom field extraction - AANGEPAST voor echte API data (2025-06-25)
     const getCustomFieldValue = (...labels: string[]): string => {
-      const customFields = order.raw_data?.custom_field_inputs || order.custom_field_inputs || [];
+      // Eerst proberen in products (waar de echte data zit!)
+      if (order.raw_data?.products) {
+        for (const product of order.raw_data.products) {
+          if (product.custom_field_inputs) {
+            for (const field of product.custom_field_inputs) {
+              if (labels.includes(field.label || '')) {
+                return field.input || '-';
+              }
+            }
+          }
+        }
+      }
       
-      // Try to find field by any of the provided labels
+      // Fallback naar root level (legacy)
+      const customFields = order.raw_data?.custom_field_inputs || order.custom_field_inputs || [];
       for (const label of labels) {
         const field = customFields.find(f => {
           // Handle both old format (name/value) and new format (label/input)
@@ -77,11 +89,11 @@ export const useFetchOrders = () => {
         return order.thema;
       }
       
-      // Then try various thema field names
+      // Then try various thema field names - AANGEPAST voor echte API data
       const themaValue = getCustomFieldValue(
+        'Vertel over de gelegenheid',  // Echte veldnaam uit API data
         'Thema', 
         'Gelegenheid', 
-        'Vertel over de gelegenheid',
         'Voor welke gelegenheid',
         'Voor welke gelegenheid?',
         'Waarvoor is dit lied?',
@@ -113,8 +125,9 @@ export const useFetchOrders = () => {
         return lastname ? `${firstname} ${lastname}` : firstname;
       }
       
-      // Try custom fields as last resort
+      // Try custom fields as last resort - met echte veldnamen
       const voornaamValue = getCustomFieldValue(
+        'Beschrijf',  // Echte veldnaam kan soms namen bevatten
         'Voornaam',
         'Voor wie is dit lied?',
         'Voor wie',

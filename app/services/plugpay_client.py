@@ -192,6 +192,11 @@ def get_custom_fields(order_data, api_headers=None):
     Haalt custom fields op uit order data met een robuuste fallback-strategie.
     Ondersteunt zowel v1 als v2 API-structuren.
     
+    BELANGRIJKE UPDATE: Gebaseerd op echte API data van 2025-06-25:
+    - Custom fields zitten NIET op root niveau
+    - Custom fields zitten in products[].custom_field_inputs
+    - Veld structuur: {"label": "Beschrijf", "input": "waarde"}
+    
     Voor v2 API probeert het achtereenvolgens de volgende bronnen:
     1. order["custom_fields"] (root-level custom fields)
     2. order["items"][].custom_fields (item-level custom fields)
@@ -222,14 +227,18 @@ def get_custom_fields(order_data, api_headers=None):
             logger.debug(f"Order {order_id}: {source_name} custom fields gevonden")
             for field in fields_array:
                 if isinstance(field, dict):
-                    # Oude format: name/value
-                    if "name" in field and "value" in field:
-                        extracted[field["name"]] = field["value"]
-                        logger.debug(f"Order {order_id}: Oude format field gevonden: {field['name']}")
-                    # Nieuwe format: label/input
-                    elif "label" in field and "input" in field:
+                    # Echte API format: label/input (gebaseerd op 2025-06-25 data)
+                    if "label" in field and "input" in field:
                         extracted[field["label"]] = field["input"]
-                        logger.debug(f"Order {order_id}: Nieuwe format field gevonden: {field['label']}")
+                        logger.debug(f"Order {order_id}: API format field gevonden: {field['label']}")
+                    # Legacy format: name/value (voor backwards compatibility)
+                    elif "name" in field and "value" in field:
+                        extracted[field["name"]] = field["value"]
+                        logger.debug(f"Order {order_id}: Legacy format field gevonden: {field['name']}")
+                    # Fallback: probeer andere combinaties
+                    elif "label" in field and "value" in field:
+                        extracted[field["label"]] = field["value"]
+                        logger.debug(f"Order {order_id}: Mixed format field gevonden: {field['label']}")
         return extracted
     
     # Controleer of we met v2 API data te maken hebben
@@ -270,41 +279,42 @@ def get_custom_fields(order_data, api_headers=None):
                         source_path = source_path or "v2_product"
                         logger.info(f"Order {order_id}: {len(product_fields)} custom fields gevonden in product van item {i+1}")
     else:
-        # V1 API verwerking (bestaande code)
-        # Stap 1: Probeer root-level custom fields in beide formats
-        # 1.1: Oude format: custom_field_inputs met name/value
-        root_fields = extract_fields_from_array(order_data.get("custom_field_inputs", []), "Root-level (oude format)")
-        if root_fields:
-            result.update(root_fields)
-            source_path = "root_old_format"
+        # V1 API verwerking - AANGEPAST op basis van echte API data
+        # Stap 1: EERST proberen in products (waar de echte data zit!)
+        if order_data.get("products") and isinstance(order_data.get("products"), list):
+            for i, product in enumerate(order_data.get("products")):
+                # 1.1: Echte API format: custom_field_inputs met label/input
+                product_fields = extract_fields_from_array(
+                    product.get("custom_field_inputs", []), 
+                    f"Product {i+1} (API format)"
+                )
+                if product_fields:
+                    result.update(product_fields)
+                    source_path = "product_api_format"
+                    logger.info(f"Order {order_id}: {len(product_fields)} custom fields gevonden in product {i+1}")
+                
+                # 1.2: Legacy format in product (voor backwards compatibility)
+                product_fields_legacy = extract_fields_from_array(
+                    product.get("custom_fields", []), 
+                    f"Product {i+1} (legacy format)"
+                )
+                if product_fields_legacy:
+                    result.update(product_fields_legacy)
+                    source_path = source_path or "product_legacy_format"
         
-        # 1.2: Nieuwe format: custom_fields met label/input
-        root_fields_new = extract_fields_from_array(order_data.get("custom_fields", []), "Root-level (nieuwe format)")
-        if root_fields_new:
-            result.update(root_fields_new)
-            source_path = source_path or "root_new_format"
-        
-        # Stap 2: Als er nog geen of onvoldoende fields zijn, probeer alle producten
-        if not result or len(result) < 3:  # Als er minder dan 3 velden zijn, zoek verder
-            if order_data.get("products") and isinstance(order_data.get("products"), list):
-                for i, product in enumerate(order_data.get("products")):
-                    # 2.1: Oude format in product
-                    product_fields = extract_fields_from_array(
-                        product.get("custom_field_inputs", []), 
-                        f"Product {i+1} (oude format)"
-                    )
-                    if product_fields:
-                        result.update(product_fields)
-                        source_path = source_path or "product_old_format"
-                    
-                    # 2.2: Nieuwe format in product
-                    product_fields_new = extract_fields_from_array(
-                        product.get("custom_fields", []), 
-                        f"Product {i+1} (nieuwe format)"
-                    )
-                    if product_fields_new:
-                        result.update(product_fields_new)
-                        source_path = source_path or "product_new_format"
+        # Stap 2: Alleen als er GEEN fields in products zijn, probeer root-level
+        if not result:
+            # 2.1: Root-level custom_field_inputs (legacy)
+            root_fields = extract_fields_from_array(order_data.get("custom_field_inputs", []), "Root-level (legacy)")
+            if root_fields:
+                result.update(root_fields)
+                source_path = "root_legacy_format"
+            
+            # 2.2: Root-level custom_fields (legacy)
+            root_fields_new = extract_fields_from_array(order_data.get("custom_fields", []), "Root-level (new)")
+            if root_fields_new:
+                result.update(root_fields_new)
+                source_path = source_path or "root_new_format"
     
     # Stap 3: Als er nog steeds geen fields zijn, probeer de checkout endpoint
     if not result and "checkout_id" in order_data:

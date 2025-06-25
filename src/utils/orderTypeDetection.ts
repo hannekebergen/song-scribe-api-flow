@@ -37,7 +37,7 @@ export function detectOrderType(order: Order): OrderTypeInfo {
     // Determine product type
     let orderType: OrderTypeInfo;
 
-    // Main products (highest priority)
+    // Main products (highest priority) - AANGEPAST op basis van echte API data
     if (productId === 274588) {
       orderType = {
         type: 'Standaard 72u',
@@ -51,7 +51,7 @@ export function detectOrderType(order: Order): OrderTypeInfo {
         priority: 200
       };
     }
-    // Upsells
+    // Upsells - Echte data: Product 299107 heeft pivot.type: "upsell"
     else if (pivotType === 'upsell') {
       if (productId === 294847) {
         orderType = {

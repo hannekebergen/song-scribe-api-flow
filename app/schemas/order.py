@@ -78,11 +78,30 @@ class OrderRead(BaseModel):
             raw = {}
         values["raw_data"] = raw
         
-        # Helper functie om custom fields te verzamelen
+        # Helper functie om custom fields te verzamelen - AANGEPAST voor echte API data
         def cf_dict():
-            lst = raw.get("custom_field_inputs") or []
-            return { (c.get("name") or c.get("label")): (c.get("value") or c.get("input"))
-                     for c in lst if isinstance(c, dict) }
+            custom_fields = {}
+            
+            # Eerst proberen in products (waar de echte data zit!)
+            for product in raw.get("products", []):
+                for field in product.get("custom_field_inputs", []):
+                    if isinstance(field, dict):
+                        label = field.get("label")
+                        value = field.get("input")  # Echte API gebruikt "input", niet "value"
+                        if label and value:
+                            custom_fields[label] = value
+            
+            # Fallback naar root level (legacy)
+            if not custom_fields:
+                lst = raw.get("custom_field_inputs") or []
+                for c in lst:
+                    if isinstance(c, dict):
+                        key = c.get("name") or c.get("label")
+                        value = c.get("value") or c.get("input")
+                        if key and value:
+                            custom_fields[key] = value
+            
+            return custom_fields
         
         cfs = cf_dict()
         
@@ -99,11 +118,12 @@ class OrderRead(BaseModel):
                     values_found.append(cfs[key].strip())
             return " ".join(values_found) if values_found else None
         
-        # Vul ontbrekende velden in
-        values.setdefault("thema", pick("Thema", "Gelegenheid", "Vertel over de gelegenheid", "Voor welke gelegenheid", "Voor welke gelegenheid?", "Waarvoor is dit lied?", "Gewenste stijl"))
+        # Vul ontbrekende velden in - AANGEPAST op basis van echte API data (2025-06-25)
+        # Echte veldnamen uit API: "Beschrijf", "Vertel over de gelegenheid"
+        values.setdefault("thema", pick("Vertel over de gelegenheid", "Thema", "Gelegenheid", "Voor welke gelegenheid", "Voor welke gelegenheid?", "Waarvoor is dit lied?", "Gewenste stijl"))
         values.setdefault("toon", pick("Toon", "Sfeer", "Gewenste toon", "Stijl"))
         values.setdefault("structuur", pick("Structuur", "Song structuur", "Opbouw"))
-        values.setdefault("beschrijving", pick("Beschrijf", "Persoonlijk verhaal", "Vertel iets over deze persoon", "Toelichting", "Vertel over de gelegenheid", "Vertel over de persoon", "Vertel over deze persoon", "Vertel over je wensen", "Vertel over je ideeën", "Vertel je verhaal", "Vertel meer", "Vertel"))
+        values.setdefault("beschrijving", pick("Beschrijf", "Persoonlijk verhaal", "Vertel iets over deze persoon", "Toelichting", "Vertel over de persoon", "Vertel over deze persoon", "Vertel over je wensen", "Vertel over je ideeën", "Vertel je verhaal", "Vertel meer", "Vertel"))
         
         # Detect order type based on products
         order_type = detect_order_type(raw)
