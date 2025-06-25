@@ -25,6 +25,7 @@ class Order(Base):
     # Bestelling details
     order_id = Column(Integer, unique=True, nullable=False, index=True)
     klant_naam = Column(String, nullable=True)
+    voornaam = Column(String, nullable=True)
     klant_email = Column(String, nullable=False)
     product_naam = Column(String, nullable=False)
     bestel_datum = Column(DateTime, default=datetime.utcnow)
@@ -129,10 +130,33 @@ class Order(Base):
                 
                 return None
             
+            # Verbeterde voornaam extractie
+            def get_voornaam():
+                # Probeer eerst address.firstname
+                address = order_data.get("address", {})
+                if address.get("firstname"):
+                    return address.get("firstname")
+                
+                # Dan custom fields voor voornaam
+                voornaam = pick("Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam")
+                if voornaam:
+                    return voornaam.split()[0]  # First word only for voornaam
+                
+                # Dan customer name (first word)
+                if customer.get("name"):
+                    return customer.get("name").split()[0]
+                
+                # Dan address full_name (first word)
+                if address.get("full_name"):
+                    return address.get("full_name").split()[0]
+                
+                return None
+            
             # Maak een nieuw Order object aan
             new_order = cls(
                 order_id=order_data.get("id"),
                 klant_naam=get_klant_naam(),  # Gebruik verbeterde functie
+                voornaam=get_voornaam(),  # Nieuw voornaam veld
                 klant_email=customer.get("email", "onbekend@example.com"),
                 product_naam=products[0].get("name", "Onbekend product") if products else "Onbekend product",
                 bestel_datum=datetime.fromisoformat(order_data.get("created_at").replace("Z", "+00:00")) 
