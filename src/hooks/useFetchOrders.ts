@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ordersApi } from '@/services/api';
 import { Order } from '@/types';
+import { getOrderTypeDisplay, isSpeedOrder } from '@/utils/orderTypeDetection';
 
 export interface MappedOrder {
   ordernummer: number | undefined;
@@ -39,6 +40,11 @@ export const useFetchOrders = () => {
         custom_field_inputs: order.raw_data?.custom_field_inputs?.map(f => ({
           label: f.label || f.name,
           value: f.input || f.value
+        })),
+        products: order.raw_data?.products?.map(p => ({
+          id: p.id,
+          title: p.title,
+          pivot_type: p.pivot?.type
         }))
       });
     }
@@ -127,18 +133,32 @@ export const useFetchOrders = () => {
       return 'Onbekend';
     };
 
-    // Create a synthetic deadline field for spoed detection
-    const deadline = getCustomFieldValue('deadline', 'Deadline', 'Wanneer moet het lied klaar zijn?') || 'standaard';
-    
-    // Determine order type based on available data
-    const typeOrder = order.songtekst ? 'Songtekst' : 'Prompt';
+    // Enhanced deadline detection based on order type
+    const getDeadline = (): string => {
+      // Check if it's a spoed order
+      if (isSpeedOrder(order)) {
+        return '24 uur';
+      }
+      
+      // Try custom fields for deadline
+      const deadlineValue = getCustomFieldValue('deadline', 'Deadline', 'Wanneer moet het lied klaar zijn?');
+      if (deadlineValue !== '-') {
+        return deadlineValue;
+      }
+      
+      // Default to standard
+      return '72 uur';
+    };
+
+    // Use the new order type detection
+    const typeOrder = getOrderTypeDisplay(order);
 
     return {
       ordernummer: order.order_id || order.id,
       datum: new Date(order.bestel_datum).toLocaleDateString('nl-NL'),
       thema: getThema(),
       klant: getKlantNaam(),
-      deadline,
+      deadline: getDeadline(),
       typeOrder,
       originalOrder: order
     };

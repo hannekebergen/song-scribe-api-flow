@@ -26,7 +26,27 @@ export interface Order {
       name?: string; 
       value?: string; 
     }>;
-    products?: Array<{ title: string }>;
+    products?: Array<{ 
+      id?: number;
+      title?: string; 
+      name?: string;
+      pivot?: {
+        type?: string | null;
+        order_id?: number;
+        product_id?: number;
+        id?: number;
+        tax_pct?: number;
+        quantity?: number;
+        excl?: number;
+        incl?: number;
+        orig?: number;
+        vat_rate_id?: number;
+        sale_discount?: number;
+        promo_discount?: number | null;
+        tier_discount?: number | null;
+        label?: string;
+      };
+    }>;
     address?: {
       full_name?: string;
       firstname?: string;
@@ -42,7 +62,27 @@ export interface Order {
     name?: string; 
     value?: string; 
   }>;
-  products?: Array<{ title: string }>;
+  products?: Array<{ 
+    id?: number;
+    title?: string; 
+    name?: string;
+    pivot?: {
+      type?: string | null;
+      order_id?: number;
+      product_id?: number;
+      id?: number;
+      tax_pct?: number;
+      quantity?: number;
+      excl?: number;
+      incl?: number;
+      orig?: number;
+      vat_rate_id?: number;
+      sale_discount?: number;
+      promo_discount?: number | null;
+      tier_discount?: number | null;
+      label?: string;
+    };
+  }>;
   address?: {
     full_name?: string;
     firstname?: string;

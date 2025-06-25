@@ -4,7 +4,7 @@ SQLAlchemy model voor Plug&Pay bestellingen.
 
 import logging
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 
@@ -36,6 +36,8 @@ class Order(Base):
     structuur = Column(String, nullable=True)
     beschrijving = Column(String, nullable=True)
     deadline = Column(String, nullable=True)
+    persoonlijk_verhaal = Column(Text)
+    typeOrder = Column(String)  # New field for order type
     
     # Voeg een unieke constraint toe op order_id
     __table_args__ = (
@@ -113,7 +115,9 @@ class Order(Base):
                 toon=pick("Toon", "Sfeer"),
                 structuur=pick("Structuur", "Song structuur"),
                 beschrijving=pick("Beschrijf"),
-                deadline=products[0].get("title", "").replace("Songtekst - ", "") if products else None
+                deadline=products[0].get("title", "").replace("Songtekst - ", "") if products else None,
+                persoonlijk_verhaal=pick("Persoonlijk verhaal"),
+                typeOrder=pick("Type order")
             )
             
             # Voeg het nieuwe object toe aan de database

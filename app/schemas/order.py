@@ -59,6 +59,7 @@ class OrderRead(BaseModel):
     beschrijving: Optional[str] = None
     persoonlijk_verhaal: Optional[str] = None
     deadline: Optional[str] = None
+    typeOrder: Optional[str] = None
     
     @root_validator(pre=True)
     def derive_fields(cls, values: Any) -> Dict[str, Any]:
@@ -104,11 +105,15 @@ class OrderRead(BaseModel):
         values.setdefault("structuur", pick("Structuur", "Song structuur", "Opbouw"))
         values.setdefault("beschrijving", pick("Beschrijf", "Persoonlijk verhaal", "Vertel iets over deze persoon", "Toelichting", "Vertel over de gelegenheid", "Vertel over de persoon", "Vertel over deze persoon", "Vertel over je wensen", "Vertel over je ideeën", "Vertel je verhaal", "Vertel meer", "Vertel"))
         
+        # Detect order type based on products
+        order_type = detect_order_type(raw)
+        values.setdefault("typeOrder", order_type)
+        
         # Klant informatie uit address
         address = raw.get("address", {})
         values.setdefault("klant_naam", address.get("full_name"))
-        values.setdefault("voornaam", address.get("firstname") or pick("Voornaam", "Naam", "Voor wie is dit lied?", "Voor wie"))
-        values.setdefault("persoonlijk_verhaal", pick("Persoonlijk verhaal"))
+        values.setdefault("voornaam", address.get("firstname"))
+        values.setdefault("achternaam", address.get("lastname"))
         
         # Datum uit created_at
         if not values.get("datum") and raw.get("created_at"):
@@ -140,3 +145,79 @@ class OrderRead(BaseModel):
     class Config:
         """Pydantic configuratie."""
         from_attributes = True
+
+def detect_order_type(raw_data: dict) -> str:
+    """Detect order type based on product information."""
+    products = raw_data.get("products", [])
+    
+    if not products:
+        return "Onbekend"
+    
+    # Find the main product (highest priority)
+    main_order_type = None
+    additional_types = []
+    
+    for product in products:
+        product_id = product.get("id")
+        pivot_type = product.get("pivot", {}).get("type")
+        title = product.get("title", "") or product.get("name", "")
+        
+        # Determine product type and priority
+        order_type = None
+        priority = 0
+        
+        # Main products (highest priority)
+        if product_id == 274588:
+            order_type = "Standaard 72u"
+            priority = 100
+        elif product_id == 289456:
+            order_type = "Spoed 24u"
+            priority = 200
+        # Upsells
+        elif pivot_type == "upsell":
+            if product_id == 294847:
+                order_type = "Revisie"
+            elif product_id == 299107:
+                order_type = "Soundtrack Bundel"
+            elif product_id == 299088:
+                order_type = "Extra Coupletten"
+            else:
+                order_type = "Upsell"
+            priority = 50
+        # Order-bumps
+        elif pivot_type == "order-bump":
+            if product_id == 294792:
+                order_type = "Karaoke Track"
+            elif product_id == 299891:
+                order_type = "Engelstalig"
+            else:
+                order_type = "Order-bump"
+            priority = 30
+        # Fallback based on title analysis
+        else:
+            title_lower = title.lower()
+            if "24" in title or "24u" in title_lower or "24 u" in title_lower:
+                order_type = "Spoed 24u"
+                priority = 200
+            elif "72" in title or "72u" in title_lower or "72 u" in title_lower:
+                order_type = "Standaard 72u"
+                priority = 100
+            else:
+                order_type = "Onbekend"
+                priority = 0
+        
+        # Keep track of main order type (highest priority)
+        if order_type and (not main_order_type or priority > main_order_type[1]):
+            if main_order_type:
+                additional_types.append(main_order_type[0])
+            main_order_type = (order_type, priority)
+        elif order_type:
+            additional_types.append(order_type)
+    
+    # Return combined type if we have additional types
+    if main_order_type:
+        if additional_types:
+            return f"{main_order_type[0]} + {', '.join(additional_types)}"
+        return main_order_type[0]
+    
+    return "Onbekend"
