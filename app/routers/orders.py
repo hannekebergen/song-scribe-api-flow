@@ -508,13 +508,14 @@ async def update_order_names(
                 
                 return None
             
-            new_voornaam = get_voornaam()
-            
-            if new_voornaam and new_voornaam != order.voornaam:
-                old_voornaam = order.voornaam or "None"
-                order.voornaam = new_voornaam
-                logger.info(f"Order {order.order_id}: Updated voornaam from '{old_voornaam}' to '{new_voornaam}'")
-                updated_count += 1
+            # Temporarily disabled until voornaam column is added to database
+            # new_voornaam = get_voornaam()
+            # 
+            # if new_voornaam and new_voornaam != order.voornaam:
+            #     old_voornaam = order.voornaam or "None"
+            #     order.voornaam = new_voornaam
+            #     logger.info(f"Order {order.order_id}: Updated voornaam from '{old_voornaam}' to '{new_voornaam}'")
+            #     updated_count += 1
         
         # Commit changes
         if updated_count > 0:
