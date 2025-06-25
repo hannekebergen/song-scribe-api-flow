@@ -103,24 +103,33 @@ export function detectOrderType(order: Order): OrderTypeInfo {
     }
     // Fallback based on title analysis
     else {
-      if (title.includes('24') || title.toLowerCase().includes('24u') || title.toLowerCase().includes('24 u')) {
+      if (title.includes('24') || title.toLowerCase().includes('24u') || title.toLowerCase().includes('24 u') || title.toLowerCase().includes('spoed')) {
         orderType = {
           type: 'Spoed 24u',
           badge: 'spoed',
           priority: 200
         };
-      } else if (title.includes('72') || title.toLowerCase().includes('72u') || title.toLowerCase().includes('72 u')) {
+      } else if (title.includes('72') || title.toLowerCase().includes('72u') || title.toLowerCase().includes('72 u') || title.toLowerCase().includes('standaard')) {
         orderType = {
           type: 'Standaard 72u',
           badge: 'standaard',
           priority: 100
         };
       } else {
-        orderType = {
-          type: 'Onbekend',
-          badge: 'standaard',
-          priority: 0
-        };
+        // Als we geen specifieke match hebben, probeer te raden op basis van titel
+        if (title.toLowerCase().includes('songtekst') || title.toLowerCase().includes('lied')) {
+          orderType = {
+            type: 'Standaard 72u', // Default voor songtekst orders
+            badge: 'standaard',
+            priority: 100
+          };
+        } else {
+          orderType = {
+            type: 'Onbekend',
+            badge: 'standaard',
+            priority: 0
+          };
+        }
       }
     }
 

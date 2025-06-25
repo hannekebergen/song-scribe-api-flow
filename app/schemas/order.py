@@ -109,10 +109,38 @@ class OrderRead(BaseModel):
         order_type = detect_order_type(raw)
         values.setdefault("typeOrder", order_type)
         
-        # Klant informatie uit address
+        # Verbeterde klant informatie extractie
         address = raw.get("address", {})
-        values.setdefault("klant_naam", address.get("full_name"))
-        values.setdefault("voornaam", address.get("firstname"))
+        
+        # Verbeterde voornaam extractie
+        if not values.get("voornaam"):
+            # Probeer eerst address.firstname
+            voornaam = address.get("firstname")
+            if not voornaam:
+                # Dan custom fields
+                voornaam = pick("Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam")
+            values.setdefault("voornaam", voornaam)
+        
+        # Verbeterde klantnaam extractie als fallback
+        if not values.get("klant_naam"):
+            # Probeer address.full_name
+            klant_naam = address.get("full_name")
+            
+            if not klant_naam and address.get("firstname"):
+                # Combineer firstname + lastname
+                firstname = address.get("firstname")
+                lastname = address.get("lastname", "")
+                klant_naam = f"{firstname} {lastname}".strip()
+            
+            if not klant_naam:
+                # Gebruik custom fields
+                voornaam = pick("Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam")
+                if voornaam:
+                    achternaam = pick("Achternaam", "Van")
+                    klant_naam = f"{voornaam} {achternaam}".strip() if achternaam else voornaam
+            
+            values.setdefault("klant_naam", klant_naam)
+        
         values.setdefault("achternaam", address.get("lastname"))
         
         # Datum uit created_at
@@ -153,6 +181,11 @@ def detect_order_type(raw_data: dict) -> str:
     if not products:
         return "Onbekend"
     
+    # Debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Detecting order type for {len(products)} products")
+    
     # Find the main product (highest priority)
     main_order_type = None
     additional_types = []
@@ -161,6 +194,8 @@ def detect_order_type(raw_data: dict) -> str:
         product_id = product.get("id")
         pivot_type = product.get("pivot", {}).get("type")
         title = product.get("title", "") or product.get("name", "")
+        
+        logger.debug(f"Product: id={product_id}, pivot_type={pivot_type}, title='{title}'")
         
         # Determine product type and priority
         order_type = None
@@ -196,15 +231,22 @@ def detect_order_type(raw_data: dict) -> str:
         # Fallback based on title analysis
         else:
             title_lower = title.lower()
-            if "24" in title or "24u" in title_lower or "24 u" in title_lower:
+            if "24" in title or "24u" in title_lower or "24 u" in title_lower or "spoed" in title_lower:
                 order_type = "Spoed 24u"
                 priority = 200
-            elif "72" in title or "72u" in title_lower or "72 u" in title_lower:
+            elif "72" in title or "72u" in title_lower or "72 u" in title_lower or "standaard" in title_lower:
                 order_type = "Standaard 72u"
                 priority = 100
             else:
-                order_type = "Onbekend"
-                priority = 0
+                # Als we geen specifieke match hebben, probeer te raden op basis van titel
+                if "songtekst" in title_lower or "lied" in title_lower:
+                    order_type = "Standaard 72u"  # Default voor songtekst orders
+                    priority = 100
+                else:
+                    order_type = "Onbekend"
+                    priority = 0
+        
+        logger.debug(f"Determined: order_type='{order_type}', priority={priority}")
         
         # Keep track of main order type (highest priority)
         if order_type and (not main_order_type or priority > main_order_type[1]):
@@ -216,8 +258,11 @@ def detect_order_type(raw_data: dict) -> str:
     
     # Return combined type if we have additional types
     if main_order_type:
+        result = main_order_type[0]
         if additional_types:
-            return f"{main_order_type[0]} + {', '.join(additional_types)}"
-        return main_order_type[0]
+            result = f"{result} + {', '.join(additional_types)}"
+        logger.debug(f"Final order type: '{result}'")
+        return result
     
+    logger.debug("No order type detected, returning 'Onbekend'")
     return "Onbekend"

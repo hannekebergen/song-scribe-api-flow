@@ -102,10 +102,37 @@ class Order(Base):
                         return custom[k]
                 return None
             
+            # Verbeterde klantnaam extractie met custom fields fallback
+            def get_klant_naam():
+                # Probeer eerst customer.name
+                if customer.get("name"):
+                    return customer.get("name")
+                
+                # Dan address.full_name
+                address = order_data.get("address", {})
+                if address.get("full_name"):
+                    return address.get("full_name")
+                
+                # Dan firstname + lastname uit address
+                if address.get("firstname"):
+                    firstname = address.get("firstname")
+                    lastname = address.get("lastname", "")
+                    return f"{firstname} {lastname}".strip()
+                
+                # Dan custom fields voor voornaam
+                voornaam = pick("Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam")
+                if voornaam:
+                    achternaam = pick("Achternaam", "Van")
+                    if achternaam:
+                        return f"{voornaam} {achternaam}"
+                    return voornaam
+                
+                return None
+            
             # Maak een nieuw Order object aan
             new_order = cls(
                 order_id=order_data.get("id"),
-                klant_naam=customer.get("name") or order_data.get("address", {}).get("full_name"),  # Kan None zijn
+                klant_naam=get_klant_naam(),  # Gebruik verbeterde functie
                 klant_email=customer.get("email", "onbekend@example.com"),
                 product_naam=products[0].get("name", "Onbekend product") if products else "Onbekend product",
                 bestel_datum=datetime.fromisoformat(order_data.get("created_at").replace("Z", "+00:00")) 
@@ -116,7 +143,6 @@ class Order(Base):
                 structuur=pick("Structuur", "Song structuur"),
                 beschrijving=pick("Beschrijf"),
                 deadline=products[0].get("title", "").replace("Songtekst - ", "") if products else None,
-
                 typeOrder=pick("Type order")
             )
             

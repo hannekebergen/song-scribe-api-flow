@@ -93,16 +93,16 @@ export const useFetchOrders = () => {
 
     // Enhanced klant name extraction with multiple fallback options
     const getKlantNaam = (): string => {
-      // First try processed fields from backend
-      if (order.voornaam && order.voornaam !== '-') {
+      // First try processed fields from backend (these should now be better populated)
+      if (order.voornaam && order.voornaam !== '-' && order.voornaam.trim()) {
         return order.voornaam;
       }
       
-      if (order.klant_naam && order.klant_naam !== '-') {
+      if (order.klant_naam && order.klant_naam !== '-' && order.klant_naam.trim()) {
         return order.klant_naam;
       }
       
-      // Try address fields
+      // Try address fields from raw_data
       if (order.raw_data?.address?.full_name) {
         return order.raw_data.address.full_name;
       }
@@ -113,12 +113,12 @@ export const useFetchOrders = () => {
         return lastname ? `${firstname} ${lastname}` : firstname;
       }
       
-      // Try custom fields
+      // Try custom fields as last resort
       const voornaamValue = getCustomFieldValue(
         'Voornaam',
-        'Naam', 
         'Voor wie is dit lied?',
-        'Voor wie'
+        'Voor wie',
+        'Naam'
       );
       
       if (voornaamValue !== '-') {
