@@ -422,7 +422,8 @@ def get_custom_fields(order_data, api_headers=None):
 
 def get_order_details(order_id):
     """
-    Haalt details van een specifieke bestelling op van de Plug&Pay API v2.
+    Haalt details van een specifieke bestelling op van de Plug&Pay API.
+    Combineert data van zowel v1 API (voor address) als v2 API (voor custom fields).
     
     Args:
         order_id (str): Het ID van de bestelling
@@ -437,123 +438,103 @@ def get_order_details(order_id):
         # Haal de API-key op
         api_key = get_api_key()
         
-        # Definieer de API-endpoint met expliciete include parameters voor v2 API
-        url = f"https://api.plugandpay.nl/v2/orders/{order_id}?include=custom_fields,items,products"
+        # Headers voor beide API versies
+        headers_v1 = {
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json"
+        }
         
-        # Stel de headers in volgens v2 API vereisten
-        headers = {
+        headers_v2 = {
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
             "User-Agent": "CustomApiCall/2"
         }
         
-        # Doe het GET-verzoek
-        logger.info(f"Ophalen van details voor bestelling {order_id} met alle custom fields")
-        response = requests.get(url, headers=headers)
+        logger.info(f"Ophalen van details voor bestelling {order_id} via v1 en v2 API")
         
-        # Controleer of het verzoek succesvol was
-        response.raise_for_status()
+        # Stap 1: Haal v1 data op (bevat address en basis order info)
+        v1_url = f"https://api.plugandpay.nl/v1/orders/{order_id}?include=custom_field_inputs,products,address"
+        v1_response = requests.get(v1_url, headers=headers_v1)
+        v1_response.raise_for_status()
+        v1_data = v1_response.json()
         
-        # Parse de JSON-response
-        api_response = response.json()
+        logger.info(f"Order {order_id}: v1 API data opgehaald - address: {'address' in v1_data}")
         
-        # In v2 API zit de data in een 'data' object
-        if "data" not in api_response:
-            logger.error(f"Order {order_id}: Onverwachte API response structuur, geen 'data' object gevonden")
-            raise PlugPayAPIError(f"Onverwachte API response structuur voor order {order_id}")
+        # Stap 2: Haal v2 data op (bevat uitgebreide custom fields in items)
+        v2_url = f"https://api.plugandpay.nl/v2/orders/{order_id}?include=custom_fields,items,products"
+        v2_response = requests.get(v2_url, headers=headers_v2)
+        v2_response.raise_for_status()
+        v2_api_response = v2_response.json()
+        
+        if "data" not in v2_api_response:
+            logger.error(f"Order {order_id}: Onverwachte v2 API response structuur")
+            raise PlugPayAPIError(f"Onverwachte v2 API response structuur voor order {order_id}")
+        
+        v2_data = v2_api_response["data"]
+        logger.info(f"Order {order_id}: v2 API data opgehaald - items: {len(v2_data.get('items', []))}")
+        
+        # Stap 3: Combineer de data - start met v1 als basis (heeft meer complete structuur)
+        order_details = v1_data.copy()
+        
+        # Voeg v2 specifieke data toe
+        order_details["v2_data"] = v2_data
+        
+        # Voeg v2 items toe (bevatten uitgebreide custom fields)
+        if "items" in v2_data:
+            order_details["items"] = v2_data["items"]
             
-        # Haal de order details uit de data
-        order_details = api_response["data"]
-        
-        # Bewaar de originele v2 structuur
-        order_details["v2_data"] = api_response["data"]
-        
-        # Initialiseer custom_fields en custom_field_inputs als lege lijsten voor compatibiliteit
-        if not isinstance(order_details.get("custom_fields"), list):
-            order_details["custom_fields"] = []
-        
-        # Voor compatibiliteit met bestaande code
-        order_details["custom_field_inputs"] = []
-        
-        # Verwerk root-level custom fields
-        if "custom_fields" in order_details and isinstance(order_details["custom_fields"], list):
-            logger.info(f"Order {order_id}: {len(order_details['custom_fields'])} root-level custom fields gevonden in v2 API")
-            
-        # Verwerk items en hun custom fields
-        if "items" in order_details and isinstance(order_details["items"], list):
-            logger.info(f"Order {order_id}: {len(order_details['items'])} items gevonden in v2 API")
-            
-            # Voor compatibiliteit met bestaande code, zet items ook in products
+        # Zorg ervoor dat products array bestaat (combineer v1 en v2 products)
+        if "products" not in order_details:
             order_details["products"] = []
             
-            for item_idx, item in enumerate(order_details["items"]):
-                # Voeg item toe aan products voor compatibiliteit
+        # Voeg v2 products toe aan bestaande v1 products
+        if "items" in v2_data:
+            for item in v2_data["items"]:
                 if "product" in item and isinstance(item["product"], dict):
-                    order_details["products"].append(item["product"])
-                
-                # Verwerk item-level custom fields
-                if "custom_fields" in item and isinstance(item["custom_fields"], list):
-                    logger.info(f"Order {order_id}: Item {item_idx} heeft {len(item['custom_fields'])} custom fields")
+                    # Controleer of dit product al bestaat in v1 data
+                    product_id = item["product"].get("id")
+                    existing_product = None
+                    for existing in order_details["products"]:
+                        if existing.get("id") == product_id:
+                            existing_product = existing
+                            break
                     
-                # Verwerk product-level custom fields in items
-                if "product" in item and isinstance(item["product"], dict) and "custom_fields" in item["product"] and isinstance(item["product"]["custom_fields"], list):
-                    logger.info(f"Order {order_id}: Product in item {item_idx} heeft {len(item['product']['custom_fields'])} custom fields")
-
+                    if not existing_product:
+                        order_details["products"].append(item["product"])
         
-        # Gebruik de verbeterde get_custom_fields functie om alle custom fields te verzamelen uit de v2 API structuur
-        # De functie zal automatisch alle locaties in de v2 API response doorzoeken
-        custom_fields_dict = get_custom_fields(order_details, headers)
+        # Stap 4: Verzamel alle custom fields uit beide APIs
+        # Initialiseer custom fields arrays
+        order_details["custom_field_inputs"] = []
+        order_details["custom_fields"] = []
         
-        # Log de aantal custom fields voor debugging
-        root_fields_count = len(order_details.get("custom_fields", []))
-        items_count = len(order_details.get("items", []))
-        products_count = len(order_details.get("products", []))
-        logger.debug(f"Order {order_id}: {root_fields_count} root-level custom fields, {items_count} items en {products_count} products in v2 API")
+        # Gebruik de verbeterde get_custom_fields functie om alle custom fields te verzamelen
+        custom_fields_dict = get_custom_fields(order_details, headers_v2)
         
-        # Als er custom fields zijn gevonden via de functie, zorg ervoor dat ze ook in de 
-        # order_details['custom_field_inputs'] lijst staan voor compatibiliteit met bestaande code
+        # Converteer naar beide formaten voor compatibiliteit
         if custom_fields_dict:
-            # Converteer de dictionary terug naar de lijst-van-dictionaries formaat
-            # die verwacht wordt in order_details['custom_field_inputs'] (oude v1 format)
-            custom_field_list = []
+            # Oude format (custom_field_inputs)
             for name, value in custom_fields_dict.items():
-                custom_field_list.append({"name": name, "value": value})
+                order_details["custom_field_inputs"].append({"name": name, "value": value})
             
-            # Vervang de bestaande custom_field_inputs met onze nieuwe, complete lijst
-            order_details["custom_field_inputs"] = custom_field_list
-            
-            # Log de gevonden custom fields voor debugging
-            logger.debug(f"Order {order_id}: Gevonden custom fields: {custom_fields_dict}")
-        
-        # Zorg ervoor dat we ook de nieuwe format custom fields hebben in de order_details
-        # Dit is voor compatibiliteit met nieuwere code die mogelijk de nieuwe format verwacht
-        if custom_fields_dict:
-            # Converteer de dictionary naar het nieuwe format (label/input)
-            custom_fields_new_format = []
+            # Nieuwe format (custom_fields)
             for label, input_value in custom_fields_dict.items():
-                custom_fields_new_format.append({"label": label, "input": input_value})
-            
-            # Voeg de nieuwe format toe aan de order_details
-            order_details["custom_fields"] = custom_fields_new_format
-            logger.debug(f"Order {order_id}: Custom fields in nieuwe format toegevoegd")
-            
-        # Zorg ervoor dat address informatie beschikbaar is voor compatibiliteit
+                order_details["custom_fields"].append({"label": label, "input": input_value})
+        
+        # Stap 5: Zorg voor address compatibiliteit
         if "address" not in order_details and "billing_address" in order_details:
             order_details["address"] = order_details["billing_address"]
-            logger.debug(f"Order {order_id}: Billing address gekopieerd naar address voor compatibiliteit")
         
-        # Log de ontvangen velden om te bevestigen dat we alle benodigde data hebben
+        # Log de resultaten
         has_custom_fields = len(custom_fields_dict) > 0
         has_products = "products" in order_details and len(order_details.get("products", [])) > 0
         has_address = "address" in order_details and order_details.get("address") is not None
+        has_items = "items" in order_details and len(order_details.get("items", [])) > 0
         
-        # Debug logging voor beschikbare keys
-        logger.debug(f"Order {order_id} detail keys: {list(order_details.keys())}")
-        
-        logger.info(f"Succesvol details opgehaald voor bestelling {order_id}. "
-                   f"Bevat custom fields: {has_custom_fields} ({len(custom_fields_dict)} velden), "
-                   f"Bevat products: {has_products}, "
-                   f"Bevat address: {has_address}")
+        logger.info(f"Succesvol gecombineerde details opgehaald voor bestelling {order_id}. "
+                   f"Custom fields: {has_custom_fields} ({len(custom_fields_dict)} velden), "
+                   f"Products: {has_products} ({len(order_details.get('products', []))}), "
+                   f"Address: {has_address}, "
+                   f"Items: {has_items} ({len(order_details.get('items', []))})")
         
         return order_details
         
