@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { ordersApi } from '@/services/api';
 import { Order } from '@/types';
@@ -30,15 +29,106 @@ export const useFetchOrders = () => {
   };
 
   const mapOrderToDisplay = (order: Order): MappedOrder => {
-    // Extract custom field values safely
-    const getCustomFieldValue = (label: string): string => {
+    // Debug logging for development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Mapping order ${order.order_id}:`, {
+        order_thema: order.thema,
+        order_voornaam: order.voornaam,
+        order_klant_naam: order.klant_naam,
+        raw_data_address: order.raw_data?.address,
+        custom_field_inputs: order.raw_data?.custom_field_inputs?.map(f => ({
+          label: f.label || f.name,
+          value: f.input || f.value
+        }))
+      });
+    }
+
+    // Enhanced custom field extraction that handles both old and new formats
+    const getCustomFieldValue = (...labels: string[]): string => {
       const customFields = order.raw_data?.custom_field_inputs || order.custom_field_inputs || [];
-      const field = customFields.find(f => f.label === label);
-      return field?.input || '-';
+      
+      // Try to find field by any of the provided labels
+      for (const label of labels) {
+        const field = customFields.find(f => {
+          // Handle both old format (name/value) and new format (label/input)
+          const fieldName = f.label || f.name;
+          return fieldName === label;
+        });
+        
+        if (field) {
+          // Return input or value depending on format
+          return field.input || field.value || '-';
+        }
+      }
+      
+      return '-';
+    };
+
+    // Enhanced thema extraction with multiple fallback options
+    const getThema = (): string => {
+      // First try the processed thema field from backend
+      if (order.thema && order.thema !== '-') {
+        return order.thema;
+      }
+      
+      // Then try various thema field names
+      const themaValue = getCustomFieldValue(
+        'Thema', 
+        'Gelegenheid', 
+        'Vertel over de gelegenheid',
+        'Voor welke gelegenheid',
+        'Voor welke gelegenheid?',
+        'Waarvoor is dit lied?',
+        'Gewenste stijl'
+      );
+      
+      return themaValue !== '-' ? themaValue : 'Onbekend';
+    };
+
+    // Enhanced klant name extraction with multiple fallback options
+    const getKlantNaam = (): string => {
+      // First try processed fields from backend
+      if (order.voornaam && order.voornaam !== '-') {
+        return order.voornaam;
+      }
+      
+      if (order.klant_naam && order.klant_naam !== '-') {
+        return order.klant_naam;
+      }
+      
+      // Try address fields
+      if (order.raw_data?.address?.full_name) {
+        return order.raw_data.address.full_name;
+      }
+      
+      if (order.raw_data?.address?.firstname) {
+        const firstname = order.raw_data.address.firstname;
+        const lastname = order.raw_data?.address?.lastname || '';
+        return lastname ? `${firstname} ${lastname}` : firstname;
+      }
+      
+      // Try custom fields
+      const voornaamValue = getCustomFieldValue(
+        'Voornaam',
+        'Naam', 
+        'Voor wie is dit lied?',
+        'Voor wie'
+      );
+      
+      if (voornaamValue !== '-') {
+        const achternaamValue = getCustomFieldValue(
+          'Achternaam',
+          'Van'
+        );
+        
+        return achternaamValue !== '-' ? `${voornaamValue} ${achternaamValue}` : voornaamValue;
+      }
+      
+      return 'Onbekend';
     };
 
     // Create a synthetic deadline field for spoed detection
-    const deadline = getCustomFieldValue('deadline') || 'standaard';
+    const deadline = getCustomFieldValue('deadline', 'Deadline', 'Wanneer moet het lied klaar zijn?') || 'standaard';
     
     // Determine order type based on available data
     const typeOrder = order.songtekst ? 'Songtekst' : 'Prompt';
@@ -46,8 +136,8 @@ export const useFetchOrders = () => {
     return {
       ordernummer: order.order_id || order.id,
       datum: new Date(order.bestel_datum).toLocaleDateString('nl-NL'),
-      thema: order.thema || getCustomFieldValue('Thema') || 'Onbekend',
-      klant: order.voornaam || order.klant_naam || order.raw_data?.address?.firstname || 'Onbekend',
+      thema: getThema(),
+      klant: getKlantNaam(),
       deadline,
       typeOrder,
       originalOrder: order

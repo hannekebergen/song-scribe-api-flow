@@ -20,7 +20,12 @@ export interface Order {
   rijm?: string;
   beschrijving?: string;
   raw_data?: {
-    custom_field_inputs?: Array<{ label: string; input: string }>;
+    custom_field_inputs?: Array<{ 
+      label?: string; 
+      input?: string; 
+      name?: string; 
+      value?: string; 
+    }>;
     products?: Array<{ title: string }>;
     address?: {
       full_name?: string;
@@ -31,7 +36,12 @@ export interface Order {
     [key: string]: any; // Allow for other fields in raw_data
   };
   // Legacy fields that might still be used in some parts of the code
-  custom_field_inputs?: Array<{ label: string; input: string }>;
+  custom_field_inputs?: Array<{ 
+    label?: string; 
+    input?: string; 
+    name?: string; 
+    value?: string; 
+  }>;
   products?: Array<{ title: string }>;
   address?: {
     full_name?: string;

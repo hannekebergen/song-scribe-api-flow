@@ -99,15 +99,15 @@ class OrderRead(BaseModel):
             return " ".join(values_found) if values_found else None
         
         # Vul ontbrekende velden in
-        values.setdefault("thema", pick("Thema", "Gelegenheid", "Vertel over de gelegenheid"))
-        values.setdefault("toon", pick("Toon", "Sfeer"))
-        values.setdefault("structuur", pick("Structuur", "Song structuur"))
-        values.setdefault("beschrijving", pick("Beschrijf"))
+        values.setdefault("thema", pick("Thema", "Gelegenheid", "Vertel over de gelegenheid", "Voor welke gelegenheid", "Voor welke gelegenheid?", "Waarvoor is dit lied?", "Gewenste stijl"))
+        values.setdefault("toon", pick("Toon", "Sfeer", "Gewenste toon", "Stijl"))
+        values.setdefault("structuur", pick("Structuur", "Song structuur", "Opbouw"))
+        values.setdefault("beschrijving", pick("Beschrijf", "Persoonlijk verhaal", "Vertel iets over deze persoon", "Toelichting", "Vertel over de gelegenheid", "Vertel over de persoon", "Vertel over deze persoon", "Vertel over je wensen", "Vertel over je ideeën", "Vertel je verhaal", "Vertel meer", "Vertel"))
         
         # Klant informatie uit address
         address = raw.get("address", {})
         values.setdefault("klant_naam", address.get("full_name"))
-        values.setdefault("voornaam", address.get("firstname"))
+        values.setdefault("voornaam", address.get("firstname") or pick("Voornaam", "Naam", "Voor wie is dit lied?", "Voor wie"))
         values.setdefault("persoonlijk_verhaal", pick("Persoonlijk verhaal"))
         
         # Datum uit created_at
