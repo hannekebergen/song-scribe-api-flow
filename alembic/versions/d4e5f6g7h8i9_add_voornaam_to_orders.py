@@ -1,7 +1,7 @@
 """Add voornaam to orders
 
 Revision ID: d4e5f6g7h8i9
-Revises: c3d4e5f6g7h8
+Revises: ac5c3189725c
 Create Date: 2025-06-25 13:10:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'd4e5f6g7h8i9'
-down_revision: Union[str, None] = 'c3d4e5f6g7h8'
+down_revision: Union[str, None] = 'ac5c3189725c'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
