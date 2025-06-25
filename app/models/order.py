@@ -103,52 +103,106 @@ class Order(Base):
                         return custom[k]
                 return None
             
-            # Verbeterde klantnaam extractie met custom fields fallback
+            # Verbeterde klantnaam extractie - 6-staps systeem (gesynchroniseerd met schemas/order.py)
             def get_klant_naam():
-                # Probeer eerst customer.name
-                if customer.get("name"):
-                    return customer.get("name")
-                
-                # Dan address.full_name
+                # Stap 1: address.full_name (hoogste prioriteit)
                 address = order_data.get("address", {})
-                if address.get("full_name"):
-                    return address.get("full_name")
+                if address.get("full_name") and address.get("full_name").strip():
+                    return address.get("full_name").strip()
                 
-                # Dan firstname + lastname uit address
-                if address.get("firstname"):
-                    firstname = address.get("firstname")
-                    lastname = address.get("lastname", "")
-                    return f"{firstname} {lastname}".strip()
+                # Stap 2: address.firstname + lastname
+                if address.get("firstname") and address.get("firstname").strip():
+                    firstname = address.get("firstname").strip()
+                    lastname = address.get("lastname", "").strip()
+                    if lastname:
+                        return f"{firstname} {lastname}"
+                    return firstname
                 
-                # Dan custom fields voor voornaam
-                voornaam = pick("Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam")
+                # Stap 3: customer.name
+                if customer.get("name") and customer.get("name").strip():
+                    return customer.get("name").strip()
+                
+                # Stap 4: custom fields (uitgebreide lijst)
+                name_fields = [
+                    "Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam", 
+                    "Voor wie is het lied?", "Wie is de ontvanger?", "Naam ontvanger", 
+                    "Klant naam", "Achternaam", "Van"
+                ]
+                
+                # Probeer voornaam + achternaam combinatie
+                voornaam = None
+                achternaam = None
+                for field_name in name_fields:
+                    field_value = pick(field_name)
+                    if field_value and field_value.strip():
+                        if field_name in ["Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam", "Voor wie is het lied?", "Wie is de ontvanger?", "Naam ontvanger"]:
+                            if not voornaam:
+                                voornaam = field_value.strip()
+                        elif field_name in ["Achternaam", "Van"]:
+                            if not achternaam:
+                                achternaam = field_value.strip()
+                
                 if voornaam:
-                    achternaam = pick("Achternaam", "Van")
                     if achternaam:
                         return f"{voornaam} {achternaam}"
                     return voornaam
                 
+                # Stap 5: description parsing (eenvoudige versie voor performance)
+                beschrijving = pick("Beschrijf")
+                if beschrijving and len(beschrijving) > 10:
+                    # Zoek naar patronen zoals "voor [naam]", "aan [naam]", etc.
+                    import re
+                    patterns = [
+                        r'\bvoor\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b',
+                        r'\baan\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b',
+                        r'\b([A-Z][a-zA-Z]+)\s+heet\b',
+                        r'\bheet\s+([A-Z][a-zA-Z]+)\b'
+                    ]
+                    for pattern in patterns:
+                        match = re.search(pattern, beschrijving, re.IGNORECASE)
+                        if match:
+                            name = match.group(1).strip()
+                            if len(name) > 1 and not name.lower() in ['het', 'de', 'een', 'mijn', 'zijn', 'haar']:
+                                return name
+                
+                # Stap 6: product title analysis (laatste redmiddel)
+                if products:
+                    product_title = products[0].get("title", "")
+                    if "voor" in product_title.lower():
+                        # Simpele extractie uit product titel
+                        parts = product_title.lower().split("voor")
+                        if len(parts) > 1 and len(parts[1].strip()) > 2:
+                            potential_name = parts[1].strip().title()
+                            if len(potential_name) < 30:  # Redelijke naam lengte
+                                return potential_name
+                
                 return None
             
-            # Verbeterde voornaam extractie
+            # Verbeterde voornaam extractie - 4-staps systeem (gesynchroniseerd met schemas/order.py)
             def get_voornaam():
-                # Probeer eerst address.firstname
+                # Stap 1: address.firstname
                 address = order_data.get("address", {})
-                if address.get("firstname"):
-                    return address.get("firstname")
+                if address.get("firstname") and address.get("firstname").strip():
+                    return address.get("firstname").strip()
                 
-                # Dan custom fields voor voornaam
-                voornaam = pick("Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam")
-                if voornaam:
-                    return voornaam.split()[0]  # First word only for voornaam
+                # Stap 2: custom fields voor voornaam (uitgebreide lijst)
+                voornaam_fields = [
+                    "Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam",
+                    "Voor wie is het lied?", "Wie is de ontvanger?", "Naam ontvanger"
+                ]
+                for field_name in voornaam_fields:
+                    field_value = pick(field_name)
+                    if field_value and field_value.strip():
+                        # Voor voornaam nemen we alleen het eerste woord
+                        return field_value.strip().split()[0]
                 
-                # Dan customer name (first word)
-                if customer.get("name"):
-                    return customer.get("name").split()[0]
+                # Stap 3: customer name (first word)
+                if customer.get("name") and customer.get("name").strip():
+                    return customer.get("name").strip().split()[0]
                 
-                # Dan address full_name (first word)
-                if address.get("full_name"):
-                    return address.get("full_name").split()[0]
+                # Stap 4: address full_name (first word)
+                if address.get("full_name") and address.get("full_name").strip():
+                    return address.get("full_name").strip().split()[0]
                 
                 return None
             
