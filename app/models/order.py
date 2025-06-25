@@ -36,7 +36,7 @@ class Order(Base):
     structuur = Column(String, nullable=True)
     beschrijving = Column(String, nullable=True)
     deadline = Column(String, nullable=True)
-    persoonlijk_verhaal = Column(Text)
+
     typeOrder = Column(String)  # New field for order type
     
     # Voeg een unieke constraint toe op order_id
@@ -116,7 +116,7 @@ class Order(Base):
                 structuur=pick("Structuur", "Song structuur"),
                 beschrijving=pick("Beschrijf"),
                 deadline=products[0].get("title", "").replace("Songtekst - ", "") if products else None,
-                persoonlijk_verhaal=pick("Persoonlijk verhaal"),
+
                 typeOrder=pick("Type order")
             )
             

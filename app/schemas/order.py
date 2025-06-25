@@ -57,7 +57,7 @@ class OrderRead(BaseModel):
     structuur: Optional[str] = None
     rijm: Optional[str] = None
     beschrijving: Optional[str] = None
-    persoonlijk_verhaal: Optional[str] = None
+
     deadline: Optional[str] = None
     typeOrder: Optional[str] = None
     

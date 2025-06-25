@@ -248,9 +248,9 @@ def read_order(
             "Vertel meer": "beschrijving",
             "Vertel": "beschrijving",
             
-            # Persoonlijk verhaal varianten
-            "Persoonlijk verhaal": "persoonlijk_verhaal",
-            "Vertel iets over deze persoon": "persoonlijk_verhaal",
+            # Persoonlijk verhaal varianten (mapped to beschrijving)
+            "Persoonlijk verhaal": "beschrijving",
+            "Vertel iets over deze persoon": "beschrijving",
         }
         
         # Log summary of found fields before mapping
