@@ -83,7 +83,7 @@ export const aiApi = {
    */
   generateSongtext: async (request: GenerateSongtextRequest): Promise<SongtextResponse> => {
     try {
-      const response = await api.post<SongtextResponse>('/ai/generate-songtext', request);
+      const response = await api.post<SongtextResponse>('/api/ai/generate-songtext', request);
       return response.data;
     } catch (error) {
       console.error('Error generating songtext:', error);
@@ -96,7 +96,7 @@ export const aiApi = {
    */
   generateFromOrder: async (request: GenerateFromOrderRequest): Promise<SongtextResponse> => {
     try {
-      const response = await api.post<SongtextResponse>('/ai/generate-from-order', request);
+      const response = await api.post<SongtextResponse>('/api/ai/generate-from-order', request);
       return response.data;
     } catch (error) {
       console.error('Error generating songtext from order:', error);
@@ -109,7 +109,7 @@ export const aiApi = {
    */
   enhancePrompt: async (request: EnhancePromptRequest): Promise<PromptEnhancementResponse> => {
     try {
-      const response = await api.post<PromptEnhancementResponse>('/ai/enhance-prompt', request);
+      const response = await api.post<PromptEnhancementResponse>('/api/ai/enhance-prompt', request);
       return response.data;
     } catch (error) {
       console.error('Error enhancing prompt:', error);
@@ -122,7 +122,7 @@ export const aiApi = {
    */
   extendSongtext: async (request: ExtendSongtextRequest): Promise<ExtensionResponse> => {
     try {
-      const response = await api.post<ExtensionResponse>('/ai/extend-songtext', request);
+      const response = await api.post<ExtensionResponse>('/api/ai/extend-songtext', request);
       return response.data;
     } catch (error) {
       console.error('Error extending songtext:', error);
@@ -135,7 +135,7 @@ export const aiApi = {
    */
   getProviders: async (): Promise<ProvidersResponse> => {
     try {
-      const response = await api.get<ProvidersResponse>('/ai/providers');
+      const response = await api.get<ProvidersResponse>('/api/ai/providers');
       return response.data;
     } catch (error) {
       console.error('Error fetching AI providers:', error);
@@ -148,7 +148,7 @@ export const aiApi = {
    */
   healthCheck: async (): Promise<HealthResponse> => {
     try {
-      const response = await api.get<HealthResponse>('/ai/health');
+      const response = await api.get<HealthResponse>('/api/ai/health');
       return response.data;
     } catch (error) {
       console.error('Error checking AI health:', error);
