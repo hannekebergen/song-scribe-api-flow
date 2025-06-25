@@ -100,7 +100,67 @@ export const useFetchOrders = () => {
         'Gewenste stijl'
       );
       
-      return themaValue !== '-' ? themaValue : 'Onbekend';
+      if (themaValue !== '-') {
+        return themaValue;
+      }
+      
+      // Voor UpSell orders: probeer thema van originele order op te halen
+      const orderTypeInfo = getOrderTypeDisplay(order);
+      if (orderTypeInfo.includes('Upsell') || orderTypeInfo.includes('Extra') || orderTypeInfo.includes('Soundtrack')) {
+        // Als dit een UpSell is maar geen thema heeft, probeer van originele order
+        if (order.origin_song_id) {
+          // Zoek de originele order in de orders array
+          const originalOrder = orders.find(o => o.order_id === order.origin_song_id);
+          if (originalOrder && originalOrder.thema && originalOrder.thema !== '-') {
+            return `${originalOrder.thema} (van originele order)`;
+          }
+        }
+        
+        // Als we geen originele order kunnen vinden, probeer op basis van klant en datum
+        const customerName = getKlantNaam();
+        if (customerName !== 'Onbekend') {
+          // Zoek naar een recente standaard order van dezelfde klant
+          const recentStandardOrders = orders
+            .filter(o => {
+              const otherCustomerName = getCustomerNameForOrder(o);
+              const isStandard = o.raw_data?.products?.some(p => 
+                [274588, 289456].includes(p.id) && p.pivot?.type !== 'upsell'
+              );
+              const orderDate = new Date(o.bestel_datum);
+              const currentDate = new Date(order.bestel_datum);
+              const hoursDiff = (currentDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60);
+              
+              return isStandard && 
+                     otherCustomerName === customerName && 
+                     hoursDiff >= 0 && 
+                     hoursDiff <= 24; // Binnen 24 uur
+            })
+            .sort((a, b) => new Date(b.bestel_datum).getTime() - new Date(a.bestel_datum).getTime());
+          
+          if (recentStandardOrders.length > 0 && recentStandardOrders[0].thema) {
+            return `${recentStandardOrders[0].thema} (overgenomen)`;
+          }
+        }
+      }
+      
+      return 'Onbekend';
+    };
+    
+    // Helper functie om klantnaam voor een andere order op te halen
+    const getCustomerNameForOrder = (otherOrder: Order): string => {
+      if (otherOrder.voornaam && otherOrder.voornaam !== '-' && otherOrder.voornaam.trim() && otherOrder.voornaam !== 'null') {
+        return otherOrder.voornaam;
+      }
+      
+      if (otherOrder.klant_naam && otherOrder.klant_naam !== '-' && otherOrder.klant_naam.trim() && otherOrder.klant_naam !== 'null') {
+        return otherOrder.klant_naam;
+      }
+      
+      if (otherOrder.raw_data?.address?.full_name && otherOrder.raw_data.address.full_name.trim()) {
+        return otherOrder.raw_data.address.full_name;
+      }
+      
+      return 'Onbekend';
     };
 
     // VERBETERDE klantnaam extractie met uitgebreide fallback logica

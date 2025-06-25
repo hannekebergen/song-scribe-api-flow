@@ -19,6 +19,7 @@ export interface Order {
   structuur?: string;
   rijm?: string;
   beschrijving?: string;
+  origin_song_id?: number;
   raw_data?: {
     custom_field_inputs?: Array<{ 
       label?: string; 

@@ -39,6 +39,7 @@ class Order(Base):
     deadline = Column(String, nullable=True)
 
     typeOrder = Column(String)  # New field for order type
+    origin_song_id = Column(Integer, nullable=True)  # For upsell orders, references the original order
     
     # Voeg een unieke constraint toe op order_id
     __table_args__ = (
@@ -206,6 +207,15 @@ class Order(Base):
                 
                 return None
             
+            # Detecteer of dit een UpSell order is
+            is_upsell = False
+            if products:
+                for product in products:
+                    pivot_type = product.get("pivot", {}).get("type")
+                    if pivot_type == "upsell":
+                        is_upsell = True
+                        break
+            
             # Maak een nieuw Order object aan
             new_order = cls(
                 order_id=order_data.get("id"),
@@ -223,6 +233,18 @@ class Order(Base):
                 deadline=products[0].get("title", "").replace("Songtekst - ", "") if products else None,
                 typeOrder=pick("Type order")
             )
+            
+            # Voor UpSell orders: probeer te linken aan originele order en neem thema over
+            if is_upsell:
+                from app.services.upsell_linking import find_original_order_for_upsell, inherit_theme_from_original
+                
+                original_order_id = find_original_order_for_upsell(db_session, order_data)
+                if original_order_id:
+                    new_order.origin_song_id = original_order_id
+                    
+                    # Als de UpSell order geen eigen thema heeft, neem het over van de originele order
+                    if not new_order.thema or new_order.thema == '-':
+                        inherit_theme_from_original(db_session, new_order, original_order_id)
             
             # Voeg het nieuwe object toe aan de database
             db_session.add(new_order)

@@ -19,6 +19,7 @@ from app.schemas.order import OrderRead
 from app.services.plugpay_client import fetch_and_store_recent_orders, PlugPayAPIError
 from app.auth.token import get_api_key
 from app.crud import order as crud
+from app.services.upsell_linking import find_original_order_for_upsell, inherit_theme_from_original
 
 # Configureer logging
 logger = logging.getLogger(__name__)
@@ -537,3 +538,59 @@ async def update_order_names(
             status_code=500,
             detail=f"Error updating orders: {str(e)}"
         )
+
+@router.post("/link-upsell-orders", response_model=UpdateResponse)
+async def link_upsell_orders(
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Link bestaande UpSell orders aan hun originele orders en neem thema's over.
+    """
+    try:
+        # Haal alle UpSell orders op die nog niet gelinkt zijn
+        upsell_orders = db.query(Order).filter(
+            Order.origin_song_id.is_(None)  # Nog niet gelinkt
+        ).all()
+        
+        linked_count = 0
+        theme_inherited_count = 0
+        
+        for order in upsell_orders:
+            # Check of dit een UpSell order is
+            is_upsell = False
+            if order.raw_data and order.raw_data.get("products"):
+                for product in order.raw_data["products"]:
+                    pivot_type = product.get("pivot", {}).get("type")
+                    if pivot_type == "upsell":
+                        is_upsell = True
+                        break
+            
+            if is_upsell:
+                # Probeer originele order te vinden
+                original_order_id = find_original_order_for_upsell(db, order.raw_data)
+                
+                if original_order_id:
+                    order.origin_song_id = original_order_id
+                    linked_count += 1
+                    
+                    # Probeer thema over te nemen als de UpSell order geen thema heeft
+                    if not order.thema or order.thema == '-' or order.thema == 'Onbekend':
+                        if inherit_theme_from_original(db, order, original_order_id):
+                            theme_inherited_count += 1
+                    
+                    logger.info(f"UpSell order {order.order_id} gelinkt aan originele order {original_order_id}")
+        
+        # Commit alle wijzigingen
+        db.commit()
+        
+        return UpdateResponse(
+            success=True,
+            message=f"UpSell linking voltooid: {linked_count} orders gelinkt, {theme_inherited_count} thema's overgenomen",
+            updated_orders=linked_count
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Fout bij linken van UpSell orders: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Fout bij linken van UpSell orders: {str(e)}")
