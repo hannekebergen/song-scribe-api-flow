@@ -103,46 +103,99 @@ export const useFetchOrders = () => {
       return themaValue !== '-' ? themaValue : 'Onbekend';
     };
 
-    // Enhanced klant name extraction with multiple fallback options
+    // VERBETERDE klantnaam extractie met uitgebreide fallback logica
     const getKlantNaam = (): string => {
-      // First try processed fields from backend (these should now be better populated)
-      if (order.voornaam && order.voornaam !== '-' && order.voornaam.trim()) {
+      // Stap 1: Probeer backend verwerkte velden eerst
+      if (order.voornaam && order.voornaam !== '-' && order.voornaam.trim() && order.voornaam !== 'null') {
         return order.voornaam;
       }
       
-      if (order.klant_naam && order.klant_naam !== '-' && order.klant_naam.trim()) {
+      if (order.klant_naam && order.klant_naam !== '-' && order.klant_naam.trim() && order.klant_naam !== 'null') {
         return order.klant_naam;
       }
       
-      // Try address fields from raw_data
-      if (order.raw_data?.address?.full_name) {
+      // Stap 2: Probeer address velden uit raw_data
+      if (order.raw_data?.address?.full_name && order.raw_data.address.full_name.trim()) {
         return order.raw_data.address.full_name;
       }
       
-      if (order.raw_data?.address?.firstname) {
-        const firstname = order.raw_data.address.firstname;
-        const lastname = order.raw_data?.address?.lastname || '';
+      if (order.raw_data?.address?.firstname && order.raw_data.address.firstname.trim()) {
+        const firstname = order.raw_data.address.firstname.trim();
+        const lastname = order.raw_data?.address?.lastname?.trim() || '';
         return lastname ? `${firstname} ${lastname}` : firstname;
       }
       
-      // Try custom fields as last resort - met echte veldnamen
+      // Stap 3: Probeer customer velden uit raw_data
+      if (order.raw_data?.customer?.name && order.raw_data.customer.name.trim()) {
+        return order.raw_data.customer.name;
+      }
+      
+      // Stap 4: Probeer custom fields - uitgebreide lijst met alle mogelijke varianten
       const voornaamValue = getCustomFieldValue(
-        'Beschrijf',  // Echte veldnaam kan soms namen bevatten
         'Voornaam',
         'Voor wie is dit lied?',
         'Voor wie',
-        'Naam'
+        'Naam',
+        'Voor wie is het lied?',
+        'Wie is de ontvanger?',
+        'Naam ontvanger',
+        'Klant naam'
       );
       
-      if (voornaamValue !== '-') {
+      if (voornaamValue && voornaamValue !== '-' && voornaamValue.trim()) {
         const achternaamValue = getCustomFieldValue(
           'Achternaam',
-          'Van'
+          'Van',
+          'Familienaam',
+          'Laatste naam'
         );
         
-        return achternaamValue !== '-' ? `${voornaamValue} ${achternaamValue}` : voornaamValue;
+        const voornaam = voornaamValue.trim();
+        const achternaam = achternaamValue && achternaamValue !== '-' ? achternaamValue.trim() : '';
+        
+        return achternaam ? `${voornaam} ${achternaam}` : voornaam;
       }
       
+      // Stap 5: Probeer beschrijving velden voor namen (soms staat de naam in de beschrijving)
+      const beschrijvingValue = getCustomFieldValue(
+        'Beschrijf',
+        'Persoonlijk verhaal',
+        'Vertel over de persoon',
+        'Toelichting'
+      );
+      
+      if (beschrijvingValue && beschrijvingValue !== '-' && beschrijvingValue.trim()) {
+        const beschrijving = beschrijvingValue.trim();
+        // Probeer een naam te extraheren uit de eerste zin (vaak begint met de naam)
+        const firstSentence = beschrijving.split('.')[0];
+        const words = firstSentence.split(' ');
+        
+        // Als de eerste 2-3 woorden lijken op een naam (hoofdletters), gebruik die
+        if (words.length >= 2) {
+          const potentialName = words.slice(0, 2).join(' ');
+          // Check of het begint met hoofdletters (waarschijnlijk een naam)
+          if (/^[A-Z][a-z]+ [A-Z][a-z]+/.test(potentialName)) {
+            return potentialName;
+          }
+          // Of alleen de eerste naam als het één woord met hoofdletter is
+          if (/^[A-Z][a-z]+/.test(words[0]) && words[0].length > 2) {
+            return words[0];
+          }
+        }
+      }
+      
+      // Stap 6: Laatste poging - kijk naar product titel of andere velden
+      if (order.raw_data?.products && order.raw_data.products.length > 0) {
+        const product = order.raw_data.products[0];
+        if (product.title && product.title.includes('voor ')) {
+          const match = product.title.match(/voor ([A-Z][a-z]+(?: [A-Z][a-z]+)?)/);
+          if (match) {
+            return match[1];
+          }
+        }
+      }
+      
+      // Als we hier komen, hebben we geen naam kunnen vinden
       return 'Onbekend';
     };
 

@@ -134,30 +134,103 @@ class OrderRead(BaseModel):
         
         # Verbeterde voornaam extractie
         if not values.get("voornaam"):
-            # Probeer eerst address.firstname
+            # Stap 1: Probeer eerst address.firstname
             voornaam = address.get("firstname")
+            
+            # Stap 2: Dan custom fields - uitgebreide lijst
             if not voornaam:
-                # Dan custom fields
-                voornaam = pick("Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam")
+                voornaam = pick(
+                    "Voornaam", 
+                    "Voor wie is dit lied?", 
+                    "Voor wie", 
+                    "Naam",
+                    "Voor wie is het lied?",
+                    "Wie is de ontvanger?",
+                    "Naam ontvanger",
+                    "Klant naam"
+                )
+            
+            # Stap 3: Probeer customer.name als voornaam
+            if not voornaam:
+                customer = raw.get("customer", {})
+                if customer.get("name"):
+                    # Neem alleen de voornaam (eerste woord)
+                    customer_name = customer.get("name").strip()
+                    voornaam = customer_name.split(' ')[0] if customer_name else None
+            
+            # Stap 4: Probeer uit full_name de voornaam te extraheren
+            if not voornaam and address.get("full_name"):
+                full_name = address.get("full_name").strip()
+                voornaam = full_name.split(' ')[0] if full_name else None
+            
             values.setdefault("voornaam", voornaam)
         
         # Verbeterde klantnaam extractie als fallback
         if not values.get("klant_naam"):
-            # Probeer address.full_name
+            # Stap 1: Probeer address.full_name
             klant_naam = address.get("full_name")
             
+            # Stap 2: Combineer firstname + lastname uit address
             if not klant_naam and address.get("firstname"):
-                # Combineer firstname + lastname
                 firstname = address.get("firstname")
                 lastname = address.get("lastname", "")
                 klant_naam = f"{firstname} {lastname}".strip()
             
+            # Stap 3: Probeer customer.name uit raw_data
             if not klant_naam:
-                # Gebruik custom fields
-                voornaam = pick("Voornaam", "Voor wie is dit lied?", "Voor wie", "Naam")
+                customer = raw.get("customer", {})
+                if customer.get("name"):
+                    klant_naam = customer.get("name")
+            
+            # Stap 4: Gebruik custom fields - uitgebreide lijst
+            if not klant_naam:
+                voornaam = pick(
+                    "Voornaam", 
+                    "Voor wie is dit lied?", 
+                    "Voor wie", 
+                    "Naam",
+                    "Voor wie is het lied?",
+                    "Wie is de ontvanger?",
+                    "Naam ontvanger",
+                    "Klant naam"
+                )
                 if voornaam:
-                    achternaam = pick("Achternaam", "Van")
+                    achternaam = pick("Achternaam", "Van", "Familienaam", "Laatste naam")
                     klant_naam = f"{voornaam} {achternaam}".strip() if achternaam else voornaam
+            
+            # Stap 5: Probeer naam uit beschrijving te extraheren
+            if not klant_naam:
+                beschrijving = pick(
+                    "Beschrijf", 
+                    "Persoonlijk verhaal", 
+                    "Vertel over de persoon",
+                    "Toelichting"
+                )
+                if beschrijving and len(beschrijving.strip()) > 0:
+                    # Probeer een naam te vinden in de eerste zin
+                    first_sentence = beschrijving.strip().split('.')[0]
+                    words = first_sentence.split(' ')
+                    
+                    # Zoek naar patronen die lijken op een naam
+                    if len(words) >= 2:
+                        potential_name = ' '.join(words[:2])
+                        # Check of het begint met hoofdletters (waarschijnlijk een naam)
+                        import re
+                        if re.match(r'^[A-Z][a-z]+ [A-Z][a-z]+', potential_name):
+                            klant_naam = potential_name
+                        elif re.match(r'^[A-Z][a-z]+', words[0]) and len(words[0]) > 2:
+                            klant_naam = words[0]
+            
+            # Stap 6: Laatste poging - product titel
+            if not klant_naam:
+                products = raw.get("products", [])
+                if products and len(products) > 0:
+                    product_title = products[0].get("title", "")
+                    if "voor " in product_title.lower():
+                        import re
+                        match = re.search(r'voor ([A-Z][a-z]+(?: [A-Z][a-z]+)?)', product_title)
+                        if match:
+                            klant_naam = match.group(1)
             
             values.setdefault("klant_naam", klant_naam)
         
