@@ -10,7 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://song-scribe-api-fl
 const API_KEY = import.meta.env.VITE_API_KEY || 'jouwsong2025';
 
 // Create axios instance with default configuration
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',

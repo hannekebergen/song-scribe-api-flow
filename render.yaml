@@ -8,3 +8,10 @@ services:
     healthCheckInitialDelaySeconds: 10
     healthCheckIntervalSeconds: 15
     autoSuspend: false
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CLAUDE_API_KEY
+        sync: false

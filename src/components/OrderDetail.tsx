@@ -255,7 +255,7 @@ const OrderDetail = () => {
 
           {/* Right Column - AI Prompt and Song Editor */}
           <div className="space-y-6">
-            <AIPromptCard onCopyToSongtext={handleCopyToSongtext} />
+            <AIPromptCard order={order} onCopyToSongtext={handleCopyToSongtext} />
             <SongEditor
               ref={songtextRef}
               editedSongtext={editedSongtext}
