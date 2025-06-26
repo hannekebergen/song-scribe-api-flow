@@ -98,6 +98,7 @@ def check_persoonlijk_verhaal_column(database_url):
 
 def run_migrations():
     """Run Alembic migrations with proper error handling."""
+    engine = None
     try:
         # Get database URL
         database_url = get_database_url()
@@ -106,7 +107,7 @@ def run_migrations():
         # Test database connection
         if not test_database_connection(database_url):
             logger.error("Cannot proceed with migrations due to database connection issues")
-            sys.exit(1)
+            return False
         
         # Check current migration state
         check_migration_table(database_url)
@@ -123,6 +124,7 @@ def run_migrations():
         # Check for multiple heads and handle gracefully
         try:
             # Try to upgrade to head
+            logger.info("Attempting to upgrade to head...")
             command.upgrade(alembic_cfg, "head")
             logger.info("Migrations completed successfully")
         except Exception as e:
@@ -136,7 +138,13 @@ def run_migrations():
                     logger.error(f"Failed to upgrade to heads: {e2}")
                     raise e2
             else:
+                logger.error(f"Migration error: {e}")
                 raise e
+        
+        # Force flush logs and ensure clean exit
+        import sys
+        sys.stdout.flush()
+        sys.stderr.flush()
         
         # Check if column was added
         column_exists_after = check_persoonlijk_verhaal_column(database_url)
@@ -147,19 +155,65 @@ def run_migrations():
             logger.info("✅ persoonlijk_verhaal column already exists")
         else:
             logger.warning("⚠️ persoonlijk_verhaal column still missing after migration")
-            
+        
+        # Final log flush before returning
+        sys.stdout.flush()
+        sys.stderr.flush()
+        logger.info("Migration function completed successfully")
         return True
         
     except Exception as e:
         logger.error(f"Migration failed: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return False
+    finally:
+        # Ensure any database connections are properly closed
+        if engine:
+            try:
+                engine.dispose()
+                logger.info("Database engine disposed")
+            except Exception as e:
+                logger.warning(f"Error disposing engine: {e}")
+        
+        # Force cleanup of any remaining connections
+        import gc
+        gc.collect()
 
 if __name__ == "__main__":
     logger.info("=== Database Migration Script ===")
-    success = run_migrations()
-    if success:
-        logger.info("=== Migration Script Completed Successfully ===")
-        sys.exit(0)
-    else:
-        logger.error("=== Migration Script Failed ===")
+    
+    # Add timeout tracking
+    import time
+    start_time = time.time()
+    timeout_seconds = 300  # 5 minutes
+    
+    try:
+        success = run_migrations()
+        
+        # Check if we exceeded timeout
+        elapsed_time = time.time() - start_time
+        if elapsed_time > timeout_seconds:
+            logger.error(f"Migration script exceeded timeout of {timeout_seconds} seconds")
+            sys.exit(1)
+        
+        if success:
+            logger.info(f"=== Migration Script Completed Successfully in {elapsed_time:.1f}s ===")
+            # Force final flush and explicit exit
+            sys.stdout.flush()
+            sys.stderr.flush()
+            logger.info("Script exiting with code 0")
+            sys.exit(0)
+        else:
+            logger.error("=== Migration Script Failed ===")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            sys.exit(1)
+    except KeyboardInterrupt:
+        logger.info("Script interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Unexpected error in main: {e}")
+        sys.stdout.flush()
+        sys.stderr.flush()
         sys.exit(1)
