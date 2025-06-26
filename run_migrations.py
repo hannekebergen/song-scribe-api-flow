@@ -120,10 +120,23 @@ def run_migrations():
         
         logger.info("Starting database migrations...")
         
-        # Run migrations
-        command.upgrade(alembic_cfg, "head")
-        
-        logger.info("Migrations completed successfully")
+        # Check for multiple heads and handle gracefully
+        try:
+            # Try to upgrade to head
+            command.upgrade(alembic_cfg, "head")
+            logger.info("Migrations completed successfully")
+        except Exception as e:
+            if "Multiple head revisions" in str(e):
+                logger.warning("Multiple head revisions detected, trying to upgrade to latest merge...")
+                # Try to find and upgrade to the merge revision
+                try:
+                    command.upgrade(alembic_cfg, "heads")
+                    logger.info("Successfully upgraded to all heads")
+                except Exception as e2:
+                    logger.error(f"Failed to upgrade to heads: {e2}")
+                    raise e2
+            else:
+                raise e
         
         # Check if column was added
         column_exists_after = check_persoonlijk_verhaal_column(database_url)
