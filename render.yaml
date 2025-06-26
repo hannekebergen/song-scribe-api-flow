@@ -3,7 +3,7 @@ services:
     name: song-scribe-api-flow
     env: python
     buildCommand: pip install -r requirements.txt
-    preDeployCommand: python standalone_migrations.py
+    preDeployCommand: python direct_migrations.py
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /healthz
     healthCheckInitialDelaySeconds: 30
