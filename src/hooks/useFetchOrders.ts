@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ordersApi } from '../services/api';
 import { Order } from '../types';
+import { detectOrderType } from '@/utils/orderTypeDetection';
 
 export interface MappedOrder {
   ordernummer: string;
@@ -55,7 +56,7 @@ export const useFetchOrders = () => {
     }
   };
 
-  const extractThema = (order: Order): string => {
+  const extractThema = (order: Order, allOrders: Order[]): string => {
     const customFields: Record<string, string> = {};
     
     // Eerst proberen in products (waar echte data zit)
@@ -96,13 +97,71 @@ export const useFetchOrders = () => {
     }
     
     // Fallback naar backend thema veld
-    return order.thema || '-';
+    if (order.thema && order.thema !== '-') {
+      return order.thema;
+    }
+    
+    // Voor upsell orders: probeer thema van originele order over te nemen
+    const orderType = detectOrderType(order);
+    if (orderType.badge === 'upsell' && order.origin_song_id) {
+      const originalOrder = allOrders.find(o => o.order_id === order.origin_song_id);
+      if (originalOrder) {
+        const originalThema = extractThema(originalOrder, []);
+        if (originalThema && originalThema !== '-') {
+          console.log(`Thema '${originalThema}' overgenomen van originele order ${order.origin_song_id} voor upsell ${order.order_id}`);
+          return originalThema;
+        }
+      }
+    }
+    
+    // Als upsell order geen origin_song_id heeft, zoek naar vergelijkbare orders van dezelfde klant
+    if (orderType.badge === 'upsell' && order.klant_email) {
+      const orderDate = new Date(order.bestel_datum);
+      const dayBefore = new Date(orderDate.getTime() - 24 * 60 * 60 * 1000); // 24 uur eerder
+      
+      const possibleOriginals = allOrders.filter(o => {
+        if (o.order_id === order.order_id) return false; // Niet zichzelf
+        if (o.klant_email !== order.klant_email) return false; // Zelfde klant
+        
+        const otherDate = new Date(o.bestel_datum);
+        if (otherDate < dayBefore || otherDate >= orderDate) return false; // Binnen 24 uur voor upsell
+        
+        const otherType = detectOrderType(o);
+        return otherType.badge === 'standaard' || otherType.badge === 'spoed'; // Alleen standaard orders
+      });
+      
+      if (possibleOriginals.length > 0) {
+        // Neem de meest recente
+        const mostRecent = possibleOriginals.sort((a, b) => 
+          new Date(b.bestel_datum).getTime() - new Date(a.bestel_datum).getTime()
+        )[0];
+        
+        const inheritedThema = extractThema(mostRecent, []);
+        if (inheritedThema && inheritedThema !== '-') {
+          console.log(`Thema '${inheritedThema}' overgenomen van order ${mostRecent.order_id} voor upsell ${order.order_id} op basis van klant matching`);
+          return inheritedThema;
+        }
+      }
+    }
+    
+    return '-';
+  };
+
+  const getOrderTypeDisplay = (order: Order): string => {
+    // Eerst proberen backend typeOrder
+    if (order.typeOrder && order.typeOrder !== 'Onbekend') {
+      return order.typeOrder;
+    }
+    
+    // Fallback naar frontend detectie
+    const detectedType = detectOrderType(order);
+    return detectedType.type;
   };
 
   const mapOrdersToTableData = (orders: Order[]): MappedOrder[] => {
     return orders.map(order => {
-      // Extract thema using new extraction function
-      const thema = extractThema(order);
+      // Extract thema using new extraction function with access to all orders
+      const thema = extractThema(order, orders);
 
       // Extract klant name
       const klant = order.raw_data?.address?.full_name || 
@@ -117,13 +176,16 @@ export const useFetchOrders = () => {
       
       const formattedDatum = datum ? new Date(datum).toLocaleDateString('nl-NL') : '-';
 
+      // Get order type with frontend fallback
+      const typeOrder = getOrderTypeDisplay(order);
+
       return {
         ordernummer: `${order.order_id}`,
         datum: formattedDatum,
         thema,
         klant,
         deadline: '-', // Placeholder for deadline
-        typeOrder: order.typeOrder || 'Onbekend',
+        typeOrder,
         originalOrder: order
       };
     });
