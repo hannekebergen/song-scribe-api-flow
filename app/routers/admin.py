@@ -17,7 +17,6 @@ from app.schemas.thema import (
 )
 
 router = APIRouter(
-    prefix="/api/admin",
     tags=["admin"],
     dependencies=[Depends(get_api_key)]
 )

@@ -76,7 +76,7 @@ async def startup_db_client():
 app.include_router(songs_router, prefix="/api/songs", tags=["songs"])
 app.include_router(orders_router, prefix="/orders", tags=["orders"])
 app.include_router(ai_router, tags=["ai"])
-app.include_router(admin_router, tags=["admin"])
+app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 
 # Admin route voor het handmatig ophalen van bestellingen
 @app.post("/api/admin/fetch-orders", tags=["admin"])
