@@ -6,15 +6,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
-print("DEBUG: DATABASE_URL =", os.getenv("DATABASE_URL"))
-
 import logging
+
+# Configure logging first
+logger = logging.getLogger(__name__)
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-
-# Configureer logging
-logger = logging.getLogger(__name__)
 
 # Haal de database URL op uit environment variables
 DATABASE_URL = os.getenv("DATABASE_URL")
