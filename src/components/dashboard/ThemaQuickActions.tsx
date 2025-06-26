@@ -3,21 +3,42 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusIcon, UploadIcon, DownloadIcon } from '@/components/icons/IconComponents';
+import { useThemaCRUD } from '@/hooks/useThema';
 
 const ThemaQuickActions = () => {
-  const handleNewThema = () => {
-    // TODO: Implement new thema creation
-    console.log('Nieuw thema aanmaken');
+  const { createThema } = useThemaCRUD();
+
+  const handleNewThema = async () => {
+    const name = prompt('Voer de naam in voor het nieuwe thema (bijv. "kerst_viering"):');
+    if (!name) return;
+    
+    const displayName = prompt('Voer de weergavenaam in (bijv. "Kerst Viering"):');
+    if (!displayName) return;
+    
+    const description = prompt('Voer een beschrijving in (optioneel):') || undefined;
+    
+    try {
+      await createThema({
+        name: name.toLowerCase().replace(/\s+/g, '_'),
+        display_name: displayName,
+        description,
+        is_active: true
+      });
+      // Refresh the page to show the new thema
+      window.location.reload();
+    } catch (error) {
+      console.error('Error creating thema:', error);
+    }
   };
 
   const handleImportCSV = () => {
     // TODO: Implement CSV import
-    console.log('CSV importeren');
+    alert('CSV import functionaliteit wordt binnenkort toegevoegd');
   };
 
   const handleExportData = () => {
-    // TODO: Implement data export
-    console.log('Data exporteren');
+    // TODO: Implement data export  
+    alert('Export functionaliteit wordt binnenkort toegevoegd');
   };
 
   return (

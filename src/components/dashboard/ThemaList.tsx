@@ -1,18 +1,20 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { SearchIcon, EditIcon, TrashIcon, EyeIcon } from '@/components/icons/IconComponents';
-import { useThemas, useThemaCRUD } from '@/hooks/useThema';
+import { useThemas, useThemaCRUD, useThemaDetails } from '@/hooks/useThema';
 import { Thema } from '@/services/themaApi';
 
 const ThemaList = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedThemaId, setSelectedThemaId] = useState<number | null>(null);
   const { themas, loading, error, updateParams } = useThemas();
   const { deleteThema, loading: crudLoading } = useThemaCRUD();
+  const { thema: themaDetails, elements, rhymeSets, loading: detailsLoading } = useThemaDetails(selectedThemaId);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
@@ -22,11 +24,11 @@ const ThemaList = () => {
   const handleEdit = (thema: Thema) => {
     console.log('Edit thema:', thema.name);
     // TODO: Implement edit functionality
+    alert(`Edit functionaliteit wordt binnenkort toegevoegd voor: ${thema.display_name}`);
   };
 
   const handleView = (thema: Thema) => {
-    console.log('View thema:', thema.name);
-    // TODO: Implement view functionality
+    setSelectedThemaId(thema.id);
   };
 
   const handleDelete = async (thema: Thema) => {
@@ -145,14 +147,91 @@ const ThemaList = () => {
               </div>
               
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleView(thema)}
-                  className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                >
-                  <EyeIcon className="h-4 w-4" />
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleView(thema)}
+                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {selectedThemaId && themaDetails ? themaDetails.display_name : 'Thema Details'}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {detailsLoading ? (
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-3/4" />
+                          </div>
+                        ) : selectedThemaId && themaDetails ? (
+                                                      <div className="space-y-4">
+                             <p>{themaDetails.description}</p>
+                             
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                               <div>
+                                 <h4 className="font-semibold mb-2">Basis Info</h4>
+                                 <div className="space-y-1 text-sm">
+                                   <p><strong>Naam:</strong> {themaDetails.name}</p>
+                                   <p><strong>Status:</strong> {themaDetails.is_active ? '🟢 Actief' : '🔴 Inactief'}</p>
+                                   <p><strong>Elementen:</strong> {elements?.length || 0}</p>
+                                   <p><strong>Rijmsets:</strong> {rhymeSets?.length || 0}</p>
+                                 </div>
+                               </div>
+                               
+                               {elements && elements.length > 0 && (
+                                 <div>
+                                   <h4 className="font-semibold mb-2">Element Types</h4>
+                                   <div className="space-y-1 text-sm">
+                                     {Object.entries(
+                                       elements.reduce((acc, el) => {
+                                         acc[el.element_type] = (acc[el.element_type] || 0) + 1;
+                                         return acc;
+                                       }, {} as Record<string, number>)
+                                     ).map(([type, count]) => (
+                                       <p key={type}>
+                                         <strong>{type}:</strong> {count} stuks
+                                       </p>
+                                     ))}
+                                   </div>
+                                 </div>
+                               )}
+                             </div>
+                             
+                             {elements && elements.length > 0 && (
+                               <div>
+                                 <h4 className="font-semibold mb-2">Voorbeeld Elementen</h4>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                   {elements.slice(0, 12).map((element, idx) => (
+                                     <div key={idx} className="bg-gray-50 p-2 rounded text-xs">
+                                       <span className="font-medium text-blue-600">{element.element_type}:</span> {element.content}
+                                     </div>
+                                   ))}
+                                   {elements.length > 12 && (
+                                     <div className="bg-gray-100 p-2 rounded text-xs text-center text-gray-500">
+                                       +{elements.length - 12} meer...
+                                     </div>
+                                   )}
+                                 </div>
+                               </div>
+                             )}
+                          </div>
+                        ) : (
+                          <p>Geen thema geselecteerd</p>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogAction>Sluiten</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                
                 <Button
                   variant="ghost"
                   size="sm"
