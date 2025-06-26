@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ordersApi } from '@/services/api';
 import { Order } from '@/types';
@@ -248,6 +249,45 @@ const OrderDetail = () => {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Left Column - Order Details */}
           <div className="space-y-6">
+            {/* Nieuwe Order Info Card */}
+            <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
+                  <FileTextIcon className="h-5 w-5 mr-2 text-blue-600" />
+                  Order Informatie
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Order Type</p>
+                    <p className="text-sm text-gray-900">{order.typeOrder || 'Onbekend'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Thema</p>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                      {order.thema || '-'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Toon</p>
+                    <p className="text-sm text-gray-900">{order.toon || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Structuur</p>
+                    <p className="text-sm text-gray-900">{order.structuur || '-'}</p>
+                  </div>
+                </div>
+                
+                {order.deadline && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Deadline</p>
+                    <p className="text-sm text-gray-900">{order.deadline}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <PersonalInfoCard order={order} />
             <SongDetailsCard order={order} />
             <DescriptionCard order={order} />

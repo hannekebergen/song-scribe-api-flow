@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { ordersApi } from '../services/api';
 import { Order } from '../types';
@@ -9,6 +8,7 @@ export interface MappedOrder {
   thema: string;
   klant: string;
   deadline: string;
+  typeOrder: string;
   originalOrder: Order;
 }
 
@@ -55,12 +55,54 @@ export const useFetchOrders = () => {
     }
   };
 
+  const extractThema = (order: Order): string => {
+    const customFields: Record<string, string> = {};
+    
+    // Eerst proberen in products (waar echte data zit)
+    for (const product of order.raw_data?.products || []) {
+      for (const field of product.custom_field_inputs || []) {
+        if (field.label && field.input) {
+          customFields[field.label] = field.input;
+        }
+      }
+    }
+    
+    // Fallback naar root level
+    if (Object.keys(customFields).length === 0) {
+      for (const field of order.raw_data?.custom_field_inputs || []) {
+        const key = field.name || field.label;
+        const value = field.value || field.input;
+        if (key && value) {
+          customFields[key] = value;
+        }
+      }
+    }
+    
+    // Gebruik backend logic voor thema extractie
+    const themaFields = [
+      "Vertel over de gelegenheid", 
+      "Thema", 
+      "Gelegenheid", 
+      "Voor welke gelegenheid", 
+      "Voor welke gelegenheid?", 
+      "Waarvoor is dit lied?", 
+      "Gewenste stijl"
+    ];
+    
+    for (const field of themaFields) {
+      if (customFields[field]) {
+        return customFields[field];
+      }
+    }
+    
+    // Fallback naar backend thema veld
+    return order.thema || '-';
+  };
+
   const mapOrdersToTableData = (orders: Order[]): MappedOrder[] => {
     return orders.map(order => {
-      // Extract thema from custom fields
-      const thema = order.raw_data?.custom_field_inputs?.find(
-        field => field.label === 'Gewenste stijl'
-      )?.input || '-';
+      // Extract thema using new extraction function
+      const thema = extractThema(order);
 
       // Extract klant name
       const klant = order.raw_data?.address?.full_name || 
@@ -76,11 +118,12 @@ export const useFetchOrders = () => {
       const formattedDatum = datum ? new Date(datum).toLocaleDateString('nl-NL') : '-';
 
       return {
-        ordernummer: `#${order.order_id}`,
+        ordernummer: `${order.order_id}`,
         datum: formattedDatum,
         thema,
         klant,
         deadline: '-', // Placeholder for deadline
+        typeOrder: order.typeOrder || 'Onbekend',
         originalOrder: order
       };
     });

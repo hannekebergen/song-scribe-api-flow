@@ -19,6 +19,8 @@ export interface Order {
   structuur?: string;
   rijm?: string;
   beschrijving?: string;
+  typeOrder?: string;
+  deadline?: string;
   origin_song_id?: number;
   raw_data?: {
     custom_field_inputs?: Array<{ 
