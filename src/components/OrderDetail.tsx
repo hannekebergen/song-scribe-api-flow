@@ -8,10 +8,10 @@ import { ordersApi } from '@/services/api';
 import { Order } from '@/types';
 import { XIcon, ArrowLeftIcon, FileTextIcon } from '@/components/icons/IconComponents';
 import PersonalInfoCard from './order-detail/PersonalInfoCard';
-import SongDetailsCard from './order-detail/SongDetailsCard';
 import DescriptionCard from './order-detail/DescriptionCard';
 import SongEditor from './order-detail/SongEditor';
 import AIPromptCard from './order-detail/AIPromptCard';
+import { detectOrderType } from '@/utils/orderTypeDetection';
 
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +49,25 @@ const OrderDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper functions for getting dashboard-compatible data
+  const getOrderTypeDisplay = (order: Order): string => {
+    // Eerst proberen backend typeOrder
+    if (order.typeOrder && order.typeOrder !== 'Onbekend') {
+      return order.typeOrder;
+    }
+    
+    // Fallback naar frontend detectie (zoals in dashboard)
+    const detectedType = detectOrderType(order);
+    return detectedType.type;
+  };
+
+  const getKlantNaam = (order: Order): string => {
+    return order.raw_data?.address?.full_name || 
+      (order.raw_data?.address?.firstname && order.raw_data?.address?.lastname ? 
+        `${order.raw_data.address.firstname} ${order.raw_data.address.lastname}` : 
+        order.klant_naam || '-');
   };
 
   const handleSave = async () => {
@@ -249,7 +268,10 @@ const OrderDetail = () => {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Left Column - Order Details */}
           <div className="space-y-6">
-            {/* Nieuwe Order Info Card */}
+            {/* Persoonlijke Gegevens - Nu eerst */}
+            <PersonalInfoCard order={order} klantNaam={getKlantNaam(order)} />
+
+            {/* Order Informatie - Nu tweede */}
             <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
@@ -261,7 +283,7 @@ const OrderDetail = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium text-gray-500">Order Type</p>
-                    <p className="text-sm text-gray-900">{order.typeOrder || 'Onbekend'}</p>
+                    <p className="text-sm text-gray-900">{getOrderTypeDisplay(order)}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Thema</p>
@@ -277,19 +299,18 @@ const OrderDetail = () => {
                     <p className="text-sm font-medium text-gray-500">Structuur</p>
                     <p className="text-sm text-gray-900">{order.structuur || '-'}</p>
                   </div>
-                </div>
-                
-                {order.deadline && (
                   <div>
                     <p className="text-sm font-medium text-gray-500">Deadline</p>
-                    <p className="text-sm text-gray-900">{order.deadline}</p>
+                    <p className="text-sm text-gray-900">{order.deadline || '-'}</p>
                   </div>
-                )}
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Rijm</p>
+                    <p className="text-sm text-gray-900">{order.rijm || '-'}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <PersonalInfoCard order={order} />
-            <SongDetailsCard order={order} />
             <DescriptionCard order={order} />
           </div>
 

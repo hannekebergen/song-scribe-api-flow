@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserIcon, CalendarIcon } from '@/components/icons/IconComponents';
@@ -6,9 +5,16 @@ import { Order } from '@/types';
 
 interface PersonalInfoCardProps {
   order: Order;
+  klantNaam?: string;
 }
 
-const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ order }) => {
+const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ order, klantNaam }) => {
+  const displayKlantNaam = klantNaam || 
+    order.raw_data?.address?.full_name || 
+    (order.raw_data?.address?.firstname && order.raw_data?.address?.lastname ? 
+      `${order.raw_data.address.firstname} ${order.raw_data.address.lastname}` : 
+      order.klant_naam || '-');
+
   return (
     <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
       <CardHeader className="pb-4">
@@ -20,8 +26,8 @@ const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ order }) => {
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <label className="text-sm font-semibold text-gray-600">Voornaam</label>
-            <div className="text-lg font-medium text-gray-800">{order.voornaam || '-'}</div>
+            <label className="text-sm font-semibold text-gray-600">Klant</label>
+            <div className="text-lg font-medium text-gray-800">{displayKlantNaam}</div>
           </div>
           <div className="space-y-1">
             <label className="text-sm font-semibold text-gray-600">Besteldatum</label>
