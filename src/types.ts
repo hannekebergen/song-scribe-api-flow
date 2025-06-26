@@ -14,7 +14,14 @@ export interface Order {
   van_naam?: string;
   relatie?: string;
   datum?: string;
-  thema?: string;
+  thema?: string;  // Legacy string field
+  thema_id?: number;  // New FK to themas table
+  thema_obj?: {  // Populated thema object when needed
+    id: number;
+    name: string;
+    display_name: string;
+    description?: string;
+  };
   toon?: string;
   structuur?: string;
   rijm?: string;

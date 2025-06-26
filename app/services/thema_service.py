@@ -6,7 +6,7 @@ Handles all database operations for thema elements
 import random
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 
 from app.models.thema import Thema, ThemaElement, ThemaRhymeSet
 from app.db.session import get_db
@@ -22,6 +22,57 @@ class ThemaService:
         return self.db.query(Thema).filter(
             and_(Thema.name == thema_name.lower(), Thema.is_active == True)
         ).first()
+    
+    def find_thema_id_for_string(self, thema_string: str) -> Optional[int]:
+        """
+        Zoek thema_id voor een legacy thema string
+        
+        Gebruikt fuzzy matching om de beste thema match te vinden:
+        1. Exacte match op name
+        2. Exacte match op display_name  
+        3. Partial match op name
+        4. Partial match op display_name
+        
+        Args:
+            thema_string: De thema string uit een order
+            
+        Returns:
+            thema_id als gevonden, anders None
+        """
+        if not thema_string:
+            return None
+            
+        thema_lower = thema_string.lower().strip()
+        
+        # 1. Exacte match op name
+        thema = self.db.query(Thema).filter(
+            and_(Thema.name == thema_lower, Thema.is_active == True)
+        ).first()
+        if thema:
+            return thema.id
+            
+        # 2. Exacte match op display_name (case insensitive)
+        thema = self.db.query(Thema).filter(
+            and_(func.lower(Thema.display_name) == thema_lower, Thema.is_active == True)
+        ).first()
+        if thema:
+            return thema.id
+            
+        # 3. Partial match op name
+        thema = self.db.query(Thema).filter(
+            and_(Thema.name.ilike(f'%{thema_lower}%'), Thema.is_active == True)
+        ).first()
+        if thema:
+            return thema.id
+            
+        # 4. Partial match op display_name
+        thema = self.db.query(Thema).filter(
+            and_(Thema.display_name.ilike(f'%{thema_lower}%'), Thema.is_active == True)
+        ).first()
+        if thema:
+            return thema.id
+            
+        return None
     
     def get_thema_elements(self, thema_id: int, element_type: str = None) -> List[ThemaElement]:
         """Haal thema elementen op, optioneel gefilterd op type"""
@@ -78,12 +129,28 @@ class ThemaService:
             
         return random.choice(rhyme_sets)
     
-    def generate_thema_data(self, thema_name: str) -> Dict[str, Any]:
-        """Genereer een complete dataset voor een thema"""
-        thema = self.get_thema_by_name(thema_name)
+    def generate_thema_data(self, thema_name: str = None, thema_id: int = None) -> Dict[str, Any]:
+        """
+        Genereer een complete dataset voor een thema
+        
+        Args:
+            thema_name: Legacy thema naam (string)
+            thema_id: Nieuwe thema ID (integer) - heeft prioriteit
+            
+        Returns:
+            Dict met thema data voor prompt generatie
+        """
+        thema = None
+        
+        # Prioriteit: eerst thema_id, dan thema_name
+        if thema_id:
+            thema = self.db.query(Thema).filter(Thema.id == thema_id).first()
+        elif thema_name:
+            thema = self.get_thema_by_name(thema_name)
         
         if not thema:
-            return self._get_fallback_data(thema_name)
+            fallback_name = thema_name or f"thema_{thema_id}"
+            return self._get_fallback_data(fallback_name)
         
         # Haal verschillende element types op
         keywords = self.get_random_elements(thema.id, 'keyword', count=4)

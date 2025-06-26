@@ -115,7 +115,7 @@ Extra wensen: {extra_wens}
 
 Maak een complete songtekst met coupletten en refrein."""
 
-def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool = False) -> str:
+def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool = False, thema_id: int = None) -> str:
     """
     Genereert een AI-prompt op basis van de songdata en thema database.
     
@@ -123,14 +123,18 @@ def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool
         song_data: Dictionary met de songdata (ontvanger, van, beschrijving, etc.)
         db: Database session (optioneel)
         use_suno: Of Suno.ai geoptimaliseerde prompt moet worden gebruikt
+        thema_id: Optionele thema_id voor directe database lookup
         
     Returns:
         Een gegenereerde prompt string
     """
     thema_service = get_thema_service(db)
     
-    # Probeer thema data op te halen uit database
-    thema_data = thema_service.generate_thema_data(song_data["stijl"])
+    # Hybrid thema data ophalen: prioriteit aan thema_id, fallback naar string
+    if thema_id:
+        thema_data = thema_service.generate_thema_data(thema_id=thema_id)
+    else:
+        thema_data = thema_service.generate_thema_data(thema_name=song_data.get("stijl"))
     
     # Zorg ervoor dat extra_wens een waarde heeft
     if "extra_wens" not in song_data or not song_data["extra_wens"]:

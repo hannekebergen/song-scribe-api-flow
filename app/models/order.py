@@ -4,9 +4,10 @@ SQLAlchemy model voor Plug&Pay bestellingen.
 
 import logging
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint, Text
+from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import relationship
 
 from app.db.session import Base
 
@@ -32,7 +33,8 @@ class Order(Base):
     raw_data = Column(JSONB, nullable=True)
     
     # Afgeleide velden uit custom fields
-    thema = Column(String, nullable=True)
+    thema = Column(String, nullable=True)  # Legacy string field for backward compatibility
+    thema_id = Column(Integer, ForeignKey('themas.id', ondelete='SET NULL'), nullable=True)  # New FK to themas table
     toon = Column(String, nullable=True)
     structuur = Column(String, nullable=True)
     beschrijving = Column(String, nullable=True)
@@ -40,6 +42,9 @@ class Order(Base):
 
     typeOrder = Column(String)  # New field for order type
     origin_song_id = Column(Integer, nullable=True)  # For upsell orders, references the original order
+    
+    # Relationships
+    thema_obj = relationship("Thema", foreign_keys=[thema_id], lazy="select")
     
     # Voeg een unieke constraint toe op order_id
     __table_args__ = (
@@ -216,6 +221,21 @@ class Order(Base):
                         is_upsell = True
                         break
             
+            # Extract thema string first
+            thema_string = pick("Vertel over de gelegenheid", "Gewenste stijl", "Thema")
+            
+            # Try to find corresponding thema_id for the thema string
+            thema_id = None
+            if thema_string:
+                try:
+                    from app.services.thema_service import get_thema_service
+                    thema_service = get_thema_service(db_session)
+                    thema_id = thema_service.find_thema_id_for_string(thema_string)
+                    if thema_id:
+                        logger.info(f"Found thema_id {thema_id} for thema string '{thema_string}'")
+                except Exception as e:
+                    logger.warning(f"Could not find thema_id for '{thema_string}': {str(e)}")
+            
             # Maak een nieuw Order object aan
             new_order = cls(
                 order_id=order_data.get("id"),
@@ -226,7 +246,8 @@ class Order(Base):
                 bestel_datum=datetime.fromisoformat(order_data.get("created_at").replace("Z", "+00:00")) 
                             if order_data.get("created_at") else datetime.utcnow(),
                 raw_data=order_data,  # Sla de volledige Plug&Pay payload op
-                thema=pick("Vertel over de gelegenheid", "Gewenste stijl", "Thema"),
+                thema=thema_string,  # Legacy string field
+                thema_id=thema_id,  # New FK field
                 toon=pick("Toon", "Sfeer"),
                 structuur=pick("Structuur", "Song structuur"),
                 beschrijving=pick("Beschrijf"),
