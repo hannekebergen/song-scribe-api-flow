@@ -1,11 +1,14 @@
 """
 Module voor het beheren van prompt templates voor verschillende songstijlen.
-Templates worden gebruikt om AI-prompts te genereren op basis van klantinput.
+Nu geïntegreerd met de Thema Database voor dynamische elementen.
 """
 
-# Dictionary met templates per stijl
-# Elke template bevat placeholders die worden ingevuld met klantgegevens
-TEMPLATES = {
+import random
+from sqlalchemy.orm import Session
+from app.services.thema_service import ThemaService, get_thema_service
+
+# Originele templates blijven beschikbaar als fallback
+FALLBACK_TEMPLATES = {
     "verjaardag": """🎵 Prompt voor ManusAI – verjaardagslied voor {ontvanger}, geïnspireerd door de 30 populairste Nederlandse feestnummers. 
 
 Je bent een ervaren Nederlandstalige songwriter gespecialiseerd in liefdevolle, grappige verjaardagsteksten.
@@ -73,8 +76,6 @@ Het lied moet:
 Extra wensen: {extra_wens}
 
 Maak een complete songtekst met coupletten en refrein.""",
-
-    # Voeg hier meer templates toe voor andere stijlen
 }
 
 def get_template(style: str) -> str:
@@ -88,19 +89,17 @@ def get_template(style: str) -> str:
     Returns:
         De template string voor de opgegeven stijl
     """
-    # Converteer naar lowercase voor case-insensitive vergelijking
     style_lower = style.lower()
     
-    # Probeer een exacte match te vinden
-    if style_lower in TEMPLATES:
-        return TEMPLATES[style_lower]
+    if style_lower in FALLBACK_TEMPLATES:
+        return FALLBACK_TEMPLATES[style_lower]
     
-    # Zoek naar gedeeltelijke matches als er geen exacte match is
-    for key in TEMPLATES:
+    # Zoek naar gedeeltelijke matches
+    for key in FALLBACK_TEMPLATES:
         if key in style_lower or style_lower in key:
-            return TEMPLATES[key]
+            return FALLBACK_TEMPLATES[key]
     
-    # Fallback naar een algemene template als er geen match is
+    # Fallback naar algemene template
     return """🎵 Prompt voor ManusAI – lied voor {ontvanger}.
 
 Schrijf een origineel Nederlandstalig lied voor {ontvanger}, van {van}.
@@ -116,22 +115,94 @@ Extra wensen: {extra_wens}
 
 Maak een complete songtekst met coupletten en refrein."""
 
-def generate_prompt(song_data: dict) -> str:
+def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool = False) -> str:
     """
-    Genereert een AI-prompt op basis van de songdata en de bijbehorende template.
+    Genereert een AI-prompt op basis van de songdata en thema database.
     
     Args:
         song_data: Dictionary met de songdata (ontvanger, van, beschrijving, etc.)
+        db: Database session (optioneel)
+        use_suno: Of Suno.ai geoptimaliseerde prompt moet worden gebruikt
         
     Returns:
         Een gegenereerde prompt string
     """
-    # Haal de juiste template op
-    template = get_template(song_data["stijl"])
+    thema_service = get_thema_service(db)
     
-    # Zorg ervoor dat extra_wens een waarde heeft als het niet is opgegeven
+    # Probeer thema data op te halen uit database
+    thema_data = thema_service.generate_thema_data(song_data["stijl"])
+    
+    # Zorg ervoor dat extra_wens een waarde heeft
     if "extra_wens" not in song_data or not song_data["extra_wens"]:
         song_data["extra_wens"] = "Geen extra wensen opgegeven"
     
-    # Vul de template in met de songdata
-    return template.format(**song_data)
+    if use_suno and thema_data:
+        return _generate_suno_prompt(song_data, thema_data)
+    else:
+        return _generate_standard_prompt(song_data, thema_data)
+
+def _generate_suno_prompt(song_data: dict, thema_data: dict) -> str:
+    """Genereer Suno.ai geoptimaliseerde prompt"""
+    keywords = ", ".join(thema_data['keywords'][:3])
+    power_phrase = random.choice(thema_data['power_phrases']) if thema_data['power_phrases'] else "Speciaal voor jou"
+    rhyme_words = " - ".join(thema_data['rhyme_words'][:3])
+    instruments = " ".join(thema_data['instruments'][:3])
+    effects = " ".join(thema_data['effects'][:2])
+    
+    return f"""🎵 Suno.ai Enhanced Prompt voor {song_data["ontvanger"]}
+
+THEMA: {thema_data['display_name'].upper()}
+VOOR: {song_data["ontvanger"]}
+VAN: {song_data["van"]}
+
+BESCHRIJVING: {song_data["beschrijving"]}
+
+[intro][{", ".join(thema_data['genres'])}][language:Dutch] BPM {thema_data['bpm']} {thema_data['rhyme_pattern']}
+Toonsoort: {thema_data['key']}
+
+MUZIKALE PARAMETERS:
+- Instrumenten: {instruments}
+- Effecten: {effects}
+- Ritme: {thema_data['rhyme_pattern']}
+
+THEMA-SPECIFIEKE ELEMENTEN:
+- Kernwoorden: {keywords}
+- Power phrase: "{power_phrase}"
+- Rijmwoorden: {rhyme_words}
+
+[verse]
+{random.choice(thema_data['verse_starters']) if thema_data['verse_starters'] else 'Begin het lied'}
+
+[chorus]
+(Integreer: "{power_phrase}")
+
+EXTRA WENSEN: {song_data["extra_wens"]}
+
+Genereer een professionele Nederlandse songtekst die deze parameters optimaal gebruikt!"""
+
+def _generate_standard_prompt(song_data: dict, thema_data: dict) -> str:
+    """Genereer standaard enhanced prompt"""
+    base_template = get_template(song_data["stijl"])
+    
+    if thema_data and thema_data['keywords']:
+        # Verrijk de template met database elementen
+        keywords = ", ".join(thema_data['keywords'][:4])
+        power_phrase = random.choice(thema_data['power_phrases']) if thema_data['power_phrases'] else ""
+        
+        enhanced_template = base_template + f"""
+
+THEMA-SPECIFIEKE ELEMENTEN:
+- Gebruik deze woorden: {keywords}
+- Probeer deze zin te integreren: "{power_phrase}"
+- Rijmwoorden suggestie: {" - ".join(thema_data['rhyme_words'][:3])}"""
+        
+        return enhanced_template.format(**song_data)
+    else:
+        # Fallback naar originele template
+        return base_template.format(**song_data)
+
+def generate_prompt(song_data: dict, db: Session = None) -> str:
+    """
+    Backward compatibility function - werkt met bestaande code
+    """
+    return generate_enhanced_prompt(song_data, db, use_suno=False)
