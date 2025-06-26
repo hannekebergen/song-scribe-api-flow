@@ -7,8 +7,11 @@ import logging
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.auth.token import get_api_key
+from app.db.session import get_db
+from app.config.feature_flags import is_database_prompts_enabled, is_suno_optimization_enabled
 
 # Setup logging first
 logger = logging.getLogger(__name__)
@@ -43,7 +46,7 @@ except ImportError as e:
     USE_ASYNC = False
 
 from app.crud.order import get_order
-from app.templates.prompt_templates import generate_prompt
+from app.templates.prompt_templates import generate_prompt, generate_enhanced_prompt
 
 router = APIRouter(
     prefix="/api/ai",
@@ -77,6 +80,7 @@ class GenerateFromOrderRequest(BaseModel):
     order_id: int = Field(..., description="Order ID om songtekst voor te genereren")
     provider: Optional[str] = Field(None, description="AI provider te gebruiken")
     temperature: float = Field(0.7, description="Creativiteit (0.0-1.0)", ge=0.0, le=1.0)
+    use_suno: bool = Field(False, description="Gebruik Suno.ai geoptimaliseerde prompt formatting")
 
 class AIResponse(BaseModel):
     """Base response model voor AI operaties"""
@@ -165,13 +169,14 @@ async def generate_songtext_endpoint(
 @router.post("/generate-from-order", response_model=SongtextResponse)
 async def generate_songtext_from_order(
     request: GenerateFromOrderRequest,
-    api_key: str = Depends(get_api_key)
+    api_key: str = Depends(get_api_key),
+    db: Session = Depends(get_db)
 ):
     """
     Genereer een songtekst direct van een order
     
-    Deze endpoint haalt order data op, genereert een prompt, en maakt daar
-    een songtekst van. Ideaal voor standaard orders met custom fields.
+    Deze endpoint haalt order data op, genereert een enhanced prompt via database,
+    en maakt daar een songtekst van. Gebruikt thema database voor dynamische elementen.
     """
     try:
         logger.info(f"Generating songtext for order: {request.order_id}")
@@ -190,8 +195,31 @@ async def generate_songtext_from_order(
             "extra_wens": order.persoonlijk_verhaal or ""
         }
         
-        prompt = generate_prompt(song_data)
-        logger.info(f"Generated prompt length: {len(prompt)}")
+        # 🎯 Feature-flagged prompt generation
+        user_id = str(order.order_id)  # Use order_id as user identifier for rollout
+        
+        # Check if database prompts are enabled for this request
+        if is_database_prompts_enabled(user_id) and order.thema_id:
+            try:
+                # Check if Suno.ai optimization is also enabled
+                use_suno = request.use_suno and is_suno_optimization_enabled(user_id)
+                
+                prompt = generate_enhanced_prompt(
+                    song_data=song_data,
+                    db=db,
+                    use_suno=use_suno,
+                    thema_id=order.thema_id
+                )
+                logger.info(f"Generated database-enhanced prompt: {len(prompt)} chars (thema_id: {order.thema_id}, suno: {use_suno})")
+            except Exception as e:
+                logger.warning(f"Database prompt generation failed, falling back to static: {str(e)}")
+                # Fallback to static template
+                prompt = generate_prompt(song_data)
+                logger.info(f"Generated fallback static prompt: {len(prompt)} chars")
+        else:
+            # Use legacy static template
+            prompt = generate_prompt(song_data)
+            logger.info(f"Generated static prompt: {len(prompt)} chars (database prompts disabled or no thema_id)")
         
         # Genereer songtekst
         provider = _get_ai_provider(request.provider)
