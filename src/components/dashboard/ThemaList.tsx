@@ -7,7 +7,37 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { SearchIcon, EditIcon, TrashIcon, EyeIcon } from '@/components/icons/IconComponents';
 import { useThemas, useThemaCRUD, useThemaDetails } from '@/hooks/useThema';
-import { Thema } from '@/services/themaApi';
+import { Thema, ThemaElement } from '@/services/themaApi';
+
+// Helper component for displaying elements list with expand functionality
+const ElementsList: React.FC<{ elements: ThemaElement[] }> = ({ elements }) => {
+  const [showAll, setShowAll] = useState(false);
+  const displayElements = showAll ? elements : elements.slice(0, 12);
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+        {displayElements.map((element, idx) => (
+          <div key={idx} className="bg-gray-50 p-2 rounded text-xs">
+            <span className="font-medium text-blue-600">{element.element_type}:</span> {element.content}
+          </div>
+        ))}
+      </div>
+      {elements.length > 12 && (
+        <div className="text-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowAll(!showAll)}
+            className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          >
+            {showAll ? 'Toon minder' : `+${elements.length - 12} meer...`}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ThemaList = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -206,18 +236,7 @@ const ThemaList = () => {
                              {elements && elements.length > 0 && (
                                <div>
                                  <h4 className="font-semibold mb-2">Voorbeeld Elementen</h4>
-                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                   {elements.slice(0, 12).map((element, idx) => (
-                                     <div key={idx} className="bg-gray-50 p-2 rounded text-xs">
-                                       <span className="font-medium text-blue-600">{element.element_type}:</span> {element.content}
-                                     </div>
-                                   ))}
-                                   {elements.length > 12 && (
-                                     <div className="bg-gray-100 p-2 rounded text-xs text-center text-gray-500">
-                                       +{elements.length - 12} meer...
-                                     </div>
-                                   )}
-                                 </div>
+                                 <ElementsList elements={elements} />
                                </div>
                              )}
                           </div>
