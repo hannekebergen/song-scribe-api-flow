@@ -16,6 +16,7 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 from app.routers.songs import router as songs_router
 from app.routers.orders import router as orders_router
 from app.routers.ai import router as ai_router
+from app.routers.admin import router as admin_router
 
 # Importeer database en services
 from app.db.session import get_db, init_db
@@ -75,6 +76,7 @@ async def startup_db_client():
 app.include_router(songs_router, prefix="/api/songs", tags=["songs"])
 app.include_router(orders_router, prefix="/orders", tags=["orders"])
 app.include_router(ai_router, tags=["ai"])
+app.include_router(admin_router, tags=["admin"])
 
 # Admin route voor het handmatig ophalen van bestellingen
 @app.post("/api/admin/fetch-orders", tags=["admin"])

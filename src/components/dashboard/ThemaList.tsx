@@ -4,80 +4,98 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SearchIcon, EditIcon, TrashIcon, EyeIcon } from '@/components/icons/IconComponents';
-
-interface MockThema {
-  id: number;
-  name: string;
-  display_name: string;
-  description: string;
-  is_active: boolean;
-  element_count: number;
-  created_at: string;
-}
+import { useThemas, useThemaCRUD } from '@/hooks/useThema';
+import { Thema } from '@/services/themaApi';
 
 const ThemaList = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Mock data - will be replaced with real API data
-  const mockThemas: MockThema[] = [
-    {
-      id: 1,
-      name: 'verjaardag',
-      display_name: 'Verjaardag',
-      description: 'Thema voor verjaardagsliedjes met vrolijke en feestelijke elementen',
-      is_active: true,
-      element_count: 24,
-      created_at: '2025-01-15'
-    },
-    {
-      id: 2,
-      name: 'liefde',
-      display_name: 'Liefde',
-      description: 'Romantische thema voor liefdesliedjes en relaties',
-      is_active: true,
-      element_count: 32,
-      created_at: '2025-01-12'
-    },
-    {
-      id: 3,
-      name: 'huwelijk',
-      display_name: 'Huwelijk',
-      description: 'Thema voor bruiloften en huwelijksfeesten',
-      is_active: true,
-      element_count: 18,
-      created_at: '2025-01-10'
-    },
-    {
-      id: 4,
-      name: 'afscheid',
-      display_name: 'Afscheid',
-      description: 'Thema voor afscheidsliedjes en herinneringen',
-      is_active: false,
-      element_count: 15,
-      created_at: '2025-01-08'
-    }
-  ];
+  const { themas, loading, error, updateParams } = useThemas();
+  const { deleteThema, loading: crudLoading } = useThemaCRUD();
 
-  const filteredThemas = mockThemas.filter(thema =>
-    thema.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    thema.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    updateParams({ search: value || undefined });
+  };
 
-  const handleEdit = (thema: MockThema) => {
+  const handleEdit = (thema: Thema) => {
     console.log('Edit thema:', thema.name);
     // TODO: Implement edit functionality
   };
 
-  const handleView = (thema: MockThema) => {
+  const handleView = (thema: Thema) => {
     console.log('View thema:', thema.name);
     // TODO: Implement view functionality
   };
 
-  const handleDelete = (thema: MockThema) => {
-    console.log('Delete thema:', thema.name);
-    // TODO: Implement delete functionality
+  const handleDelete = async (thema: Thema) => {
+    if (confirm(`Weet je zeker dat je thema '${thema.display_name}' wilt verwijderen?`)) {
+      try {
+        await deleteThema(thema.id, thema.display_name);
+        // Refresh the list after deletion
+        updateParams({});
+      } catch (error) {
+        // Error handling is done in the hook
+        console.error('Error deleting thema:', error);
+      }
+    }
   };
+
+  if (loading) {
+    return (
+      <Card className="bg-white shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-6 w-20" />
+          </div>
+          <Skeleton className="h-10 w-full" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="h-5 w-20" />
+                  </div>
+                  <Skeleton className="h-4 w-64 mb-1" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-9 w-9" />
+                  <Skeleton className="h-9 w-9" />
+                  <Skeleton className="h-9 w-9" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="bg-white shadow-sm">
+        <CardContent className="p-6">
+          <div className="text-center">
+            <p className="text-red-600">Fout bij laden thema's: {error}</p>
+            <Button 
+              onClick={() => updateParams({})} 
+              className="mt-4"
+              variant="outline"
+            >
+              Opnieuw proberen
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-white shadow-sm">
@@ -87,7 +105,7 @@ const ThemaList = () => {
             Thema Overzicht
           </CardTitle>
           <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-            {filteredThemas.length} thema's
+            {themas.length} thema's
           </Badge>
         </div>
         
@@ -97,7 +115,7 @@ const ThemaList = () => {
           <Input
             placeholder="Zoek thema's..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -105,7 +123,7 @@ const ThemaList = () => {
       
       <CardContent>
         <div className="space-y-4">
-          {filteredThemas.map((thema) => (
+          {themas.map((thema) => (
             <div
               key={thema.id}
               className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -155,7 +173,7 @@ const ThemaList = () => {
             </div>
           ))}
           
-          {filteredThemas.length === 0 && (
+          {themas.length === 0 && (
             <div className="text-center py-8">
               <p className="text-gray-500">Geen thema's gevonden</p>
               <p className="text-sm text-gray-400 mt-1">
