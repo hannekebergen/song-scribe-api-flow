@@ -6,6 +6,7 @@ Laadt basis thema's en elementen gebaseerd op de Suno.ai prompting data
 
 import sys
 import os
+from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy.orm import Session
@@ -25,11 +26,14 @@ def seed_database():
         print("🎵 Seeding Thema Database...")
         
         # VERJAARDAG THEMA
+        now = datetime.now()
         verjaardag_thema = Thema(
             name="verjaardag",
             display_name="Verjaardag Viering",
             description="Vrolijke verjaardagsliedjes met feestelijke sfeer",
-            is_active=True
+            is_active=True,
+            created_at=now,
+            updated_at=now
         )
         db.add(verjaardag_thema)
         db.flush()  # Get ID
@@ -93,7 +97,8 @@ def seed_database():
                 content=content,
                 usage_context=context,
                 weight=weight,
-                suno_format=content if "[" in content else None
+                suno_format=content if "[" in content else None,
+                created_at=now
             )
             db.add(element)
         
@@ -110,7 +115,8 @@ def seed_database():
                 thema_id=verjaardag_thema.id,
                 rhyme_pattern=pattern,
                 words=words,
-                difficulty_level=difficulty
+                difficulty_level=difficulty,
+                created_at=now
             )
             db.add(rhyme_set)
         
@@ -119,7 +125,9 @@ def seed_database():
             name="liefde",
             display_name="Liefde & Romantiek",
             description="Romantische liedjes vol emotie en tederheid",
-            is_active=True
+            is_active=True,
+            created_at=now,
+            updated_at=now
         )
         db.add(liefde_thema)
         db.flush()
@@ -182,7 +190,8 @@ def seed_database():
                 content=content,
                 usage_context=context,
                 weight=weight,
-                suno_format=content if "[" in content else None
+                suno_format=content if "[" in content else None,
+                created_at=now
             )
             db.add(element)
         
@@ -199,7 +208,8 @@ def seed_database():
                 thema_id=liefde_thema.id,
                 rhyme_pattern=pattern,
                 words=words,
-                difficulty_level=difficulty
+                difficulty_level=difficulty,
+                created_at=now
             )
             db.add(rhyme_set)
         
@@ -208,7 +218,9 @@ def seed_database():
             name="huwelijk",
             display_name="Huwelijk & Trouw",
             description="Speciale liedjes voor trouwdag en huwelijksfeest",
-            is_active=True
+            is_active=True,
+            created_at=now,
+            updated_at=now
         )
         db.add(huwelijk_thema)
         db.flush()
@@ -248,7 +260,8 @@ def seed_database():
                 content=content,
                 usage_context=context,
                 weight=weight,
-                suno_format=content if "[" in content else None
+                suno_format=content if "[" in content else None,
+                created_at=now
             )
             db.add(element)
         
