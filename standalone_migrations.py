@@ -111,10 +111,39 @@ def run_standalone_migrations():
         logger.info("Starting database migrations...")
         logger.info("Attempting to upgrade to head...")
         
-        # Run migrations
+        # Run migrations with timeout protection
         try:
-            command.upgrade(alembic_cfg, "head")
-            logger.info("Migrations completed successfully")
+            import signal
+            import threading
+            
+            def timeout_handler():
+                logger.error("Migration command timed out after 120 seconds")
+                import os
+                os._exit(1)
+            
+            # Set a timer for 2 minutes
+            timer = threading.Timer(120.0, timeout_handler)
+            timer.start()
+            
+            try:
+                # Try to upgrade to the specific merge head first
+                command.upgrade(alembic_cfg, "33dc0231c81c")
+                timer.cancel()  # Cancel timeout if successful
+                logger.info("Migrations completed successfully (upgraded to merge head)")
+            except Exception as migration_error:
+                timer.cancel()  # Cancel timeout
+                logger.warning(f"Failed to upgrade to merge head: {migration_error}")
+                # Fallback to regular head upgrade
+                try:
+                    timer = threading.Timer(120.0, timeout_handler)
+                    timer.start()
+                    command.upgrade(alembic_cfg, "head")
+                    timer.cancel()
+                    logger.info("Migrations completed successfully (fallback to head)")
+                except Exception as fallback_error:
+                    timer.cancel()
+                    raise fallback_error
+                
         except Exception as e:
             if "Multiple head revisions" in str(e):
                 logger.warning("Multiple head revisions detected, trying to upgrade to all heads...")
@@ -133,10 +162,15 @@ def run_standalone_migrations():
         elapsed_time = time.time() - start_time
         logger.info(f"Migration completed in {elapsed_time:.1f} seconds")
         
-        # Force cleanup
+        # Force cleanup and explicit exit preparation
         import gc
         gc.collect()
         
+        # Force log flush
+        sys.stdout.flush()
+        sys.stderr.flush()
+        
+        logger.info("Migration function preparing to exit")
         return True
         
     except Exception as e:
@@ -166,18 +200,26 @@ if __name__ == "__main__":
             sys.stdout.flush()
             sys.stderr.flush()
             logger.info("Script exiting with code 0")
-            sys.exit(0)
+            
+            # Force immediate exit
+            import os
+            os._exit(0)
         else:
             logger.error("=== Migration Script Failed ===")
             sys.stdout.flush()
             sys.stderr.flush()
-            sys.exit(1)
+            
+            # Force immediate exit
+            import os
+            os._exit(1)
             
     except KeyboardInterrupt:
         logger.info("Script interrupted by user")
-        sys.exit(1)
+        import os
+        os._exit(1)
     except Exception as e:
         logger.error(f"Unexpected error in main: {e}")
         sys.stdout.flush()
         sys.stderr.flush()
-        sys.exit(1) 
+        import os
+        os._exit(1) 
