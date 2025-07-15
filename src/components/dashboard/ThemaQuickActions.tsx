@@ -41,6 +41,10 @@ const ThemaQuickActions = () => {
     alert('Export functionaliteit wordt binnenkort toegevoegd');
   };
 
+  const handleEditPrompts = () => {
+    alert('💡 Tip: Klik op het 👁️ oog-icoon bij een thema en ga naar de "Professionele Prompt" tab om prompts te bewerken!');
+  };
+
   return (
     <Card className="bg-gradient-to-br from-green-50 to-emerald-100 border-green-200">
       <CardContent className="p-6">
@@ -55,6 +59,13 @@ const ThemaQuickActions = () => {
           >
             <PlusIcon className="h-4 w-4 mr-2" />
             Nieuw Thema
+          </Button>
+          <Button 
+            onClick={handleEditPrompts}
+            variant="outline" 
+            className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+          >
+            📝 Bewerk Prompts
           </Button>
           <Button 
             onClick={handleImportCSV}
