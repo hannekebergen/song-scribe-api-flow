@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import { ChevronDownIcon, ArrowUpIcon, MusicIcon, DownloadIcon, XIcon } from '@/
 
 interface SunoMusicCardProps {
   order: Order;
+  currentSongtext?: string; // Add prop for current songtext from editor
 }
 
 const MUSIC_STYLES = [
@@ -29,12 +30,13 @@ const MUSIC_STYLES = [
   { value: 'blues', label: 'Blues' }
 ];
 
-export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order }) => {
+export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSongtext }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [musicResult, setMusicResult] = useState<MusicResponse | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [localSongtext, setLocalSongtext] = useState('');
   
   // Form state
   const [style, setStyle] = useState('');
@@ -43,18 +45,12 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order }) => {
   
   const { toast } = useToast();
 
-  // Check if order has songtext to generate music from
-  const getSongtext = (): string => {
-    // Try multiple fields that might contain songtext
-    if (order.beschrijving && order.beschrijving.length > 50) {
-      return order.beschrijving;
-    }
-    // Add more fields as needed
-    return '';
-  };
+  // Update local songtext when currentSongtext changes
+  useEffect(() => {
+    setLocalSongtext(currentSongtext || order.songtekst || order.beschrijving || '');
+  }, [currentSongtext, order.songtekst, order.beschrijving]);
 
-  const songtext = getSongtext();
-  const canGenerateMusic = songtext.length > 50;
+  const canGenerateMusic = localSongtext.length > 50;
 
   // Auto-determine style based on order theme
   const getDefaultStyle = (): string => {
@@ -77,7 +73,7 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order }) => {
     if (!canGenerateMusic) {
       toast({
         title: "Geen songtekst",
-        description: "Deze order heeft geen songtekst om muziek van te maken.",
+        description: "De songtekst is te kort om muziek van te maken (minimaal 50 karakters).",
         variant: "destructive"
       });
       return;
@@ -85,11 +81,11 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order }) => {
 
     setIsGenerating(true);
     try {
-      const result = await aiApi.generateMusicFromOrder({
-        order_id: order.order_id,
+      const result = await aiApi.generateMusic({
+        songtext: localSongtext,
         style: getDefaultStyle(),
         instrumental: instrumental,
-        title: customTitle || undefined
+        title: customTitle || `Lied voor ${order.klant_naam || 'onbekend'}`
       });
 
       if (result.success) {
@@ -155,10 +151,6 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order }) => {
     document.body.removeChild(link);
   };
 
-  if (!canGenerateMusic) {
-    return null; // Don't show card if no songtext
-  }
-
   return (
     <Card className="mt-6 border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
       <CardHeader>
@@ -182,17 +174,34 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order }) => {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Songtext preview */}
+        {/* Songtext preview - now editable */}
         <div className="bg-white p-3 rounded-lg border">
-          <Label className="text-sm font-medium text-gray-700 mb-2 block">
-            Songtekst voor muziekgeneratie:
-          </Label>
+          <div className="flex items-center justify-between mb-2">
+            <Label className="text-sm font-medium text-gray-700">
+              Songtekst voor muziekgeneratie:
+            </Label>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={`text-xs ${canGenerateMusic ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                {localSongtext.length} karakters
+              </Badge>
+              {currentSongtext && (
+                <Badge variant="outline" className="text-xs text-blue-600 bg-blue-50">
+                  🔄 Gesynchroniseerd
+                </Badge>
+              )}
+            </div>
+          </div>
           <Textarea
-            value={songtext}
-            readOnly
-            className="resize-none h-20 text-sm"
-            placeholder="Geen songtekst beschikbaar"
+            value={localSongtext}
+            onChange={(e) => setLocalSongtext(e.target.value)}
+            className="resize-none h-24 text-sm"
+            placeholder="Geen songtekst beschikbaar - ga naar de Songtekst tab om een songtekst te genereren of op te slaan"
           />
+          {!canGenerateMusic && (
+            <p className="text-xs text-red-600 mt-2">
+              ⚠️ Minimaal 50 karakters nodig voor muziekgeneratie
+            </p>
+          )}
         </div>
 
         {/* Music generation controls */}

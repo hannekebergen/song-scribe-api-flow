@@ -371,7 +371,7 @@ const OrderDetail = () => {
               </TabsContent>
 
               <TabsContent value="music" className="space-y-4">
-                <SunoMusicCard order={order} />
+                <SunoMusicCard order={order} currentSongtext={editedSongtext} />
               </TabsContent>
             </Tabs>
           </div>
