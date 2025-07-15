@@ -196,7 +196,7 @@ async def generate_professional_songtext_endpoint(
         # Genereer songtekst met de professionele prompt
         result = await generate_songtext_from_prompt(
             prompt=professional_prompt,
-            provider=AIProvider.OPENAI, # Hardcoded to OPENAI for professional prompt
+            provider=None, # Use default provider (Gemini)
             max_tokens=request.max_tokens,
             temperature=request.temperature
         )
@@ -253,7 +253,7 @@ async def generate_from_order_endpoint(
             professional_prompt = generate_professional_prompt(order.beschrijving or "")
             result = await generate_songtext_from_prompt(
                 prompt=professional_prompt,
-                provider=AIProvider.OPENAI, # Hardcoded to OPENAI for professional prompt
+                provider=None, # Use default provider (Gemini)
                 max_tokens=request.max_tokens,
                 temperature=request.temperature
             )
@@ -287,7 +287,7 @@ async def generate_from_order_endpoint(
             
             result = await generate_songtext_from_prompt(
                 prompt=prompt,
-                provider=AIProvider.OPENAI, # Hardcoded to OPENAI for enhanced prompt
+                provider=None, # Use default provider (Gemini)
                 max_tokens=request.max_tokens,
                 temperature=request.temperature
             )
