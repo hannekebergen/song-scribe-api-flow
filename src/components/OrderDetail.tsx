@@ -82,9 +82,13 @@ const OrderDetail = () => {
       const updatedOrder = await ordersApi.updateSongtext(order.order_id, editedSongtext);
       if (updatedOrder) {
         setOrder(updatedOrder);
+        
+        // Auto-switch naar muziek tab na succesvolle save
+        setActiveTab('music');
+        
         toast({
-          title: "Opgeslagen",
-          description: "Songtekst succesvol bijgewerkt",
+          title: "Opgeslagen & Klaar voor Muziek",
+          description: "Songtekst opgeslagen en gesynchroniseerd naar muziek tab",
         });
       }
     } catch (error) {
