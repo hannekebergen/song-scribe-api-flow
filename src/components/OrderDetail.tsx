@@ -3,10 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { ordersApi } from '@/services/api';
 import { Order } from '@/types';
-import { XIcon, ArrowLeftIcon, FileTextIcon, ArrowUpIcon } from '@/components/icons/IconComponents';
+import { XIcon, ArrowLeftIcon, FileTextIcon, ArrowUpIcon, EditIcon, MusicIcon } from '@/components/icons/IconComponents';
 import PersonalInfoCard from './order-detail/PersonalInfoCard';
 import DescriptionCard from './order-detail/DescriptionCard';
 import SongEditor from './order-detail/SongEditor';
@@ -23,6 +24,7 @@ const OrderDetail = () => {
   const [editedSongtext, setEditedSongtext] = useState('');
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('songtext');
   const songtextRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -156,6 +158,7 @@ const OrderDetail = () => {
 
   const handleCopyToSongtext = (prompt: string) => {
     setEditedSongtext(prompt);
+    setActiveTab('songtext'); // Switch to songtext tab when copying
     
     // Focus on the songtext editor after a brief delay
     setTimeout(() => {
@@ -219,7 +222,7 @@ const OrderDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -251,10 +254,10 @@ const OrderDetail = () => {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Left Column - Order Info */}
-          <div className="space-y-6">
+        {/* Main Content - Compact Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left Sidebar - Order Info */}
+          <div className="lg:col-span-1 space-y-4">
             <PersonalInfoCard order={order} />
             
             {/* Conditional rendering based on order type */}
@@ -289,73 +292,88 @@ const OrderDetail = () => {
             )}
           </div>
 
-          {/* Right Column - Song Content */}
-          <div className="xl:col-span-2 space-y-6">
-            {/* Conditional rendering for different order types */}
-            {!isUpsellOrder(order) && (
-              <>
+          {/* Right Content - Tabbed Interface */}
+          <div className="lg:col-span-3">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsTrigger value="songtext" className="flex items-center gap-2">
+                  <EditIcon className="h-4 w-4" />
+                  Songtekst
+                </TabsTrigger>
+                <TabsTrigger value="ai" className="flex items-center gap-2">
+                  🤖 AI Generatie
+                </TabsTrigger>
+                <TabsTrigger value="music" className="flex items-center gap-2">
+                  <MusicIcon className="h-4 w-4" />
+                  Muziek
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="songtext" className="space-y-4">
+                {/* Conditional rendering for different order types */}
+                {!isUpsellOrder(order) && (
+                  <SongEditor
+                    ref={songtextRef}
+                    editedSongtext={editedSongtext}
+                    setEditedSongtext={setEditedSongtext}
+                    hasChanges={hasChanges}
+                    saving={saving}
+                    originalSongtext={order.songtekst || ''}
+                    onSave={handleSave}
+                    onReset={() => setEditedSongtext(order.songtekst || '')}
+                  />
+                )}
+
+                {isUpsellOrder(order) && (
+                  <>
+                    {hasOriginSongId(order) ? (
+                      <UpsellSongEditor 
+                        order={order} 
+                        onOrderUpdate={setOrder}
+                      />
+                    ) : (
+                      <Card className="bg-amber-50 border-amber-200">
+                        <CardContent className="p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                              <span className="text-amber-600 font-semibold">!</span>
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-amber-800">Upsell Order Niet Gelinkt</h3>
+                              <p className="text-sm text-amber-700">
+                                Deze upsell order is nog niet gelinkt aan een originele order.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <p className="text-sm text-amber-700">
+                              Om de originele songtekst te kunnen bewerken, moet deze upsell order eerst worden gelinkt aan de originele order.
+                            </p>
+                            <div className="bg-amber-100 p-3 rounded-lg">
+                              <p className="text-xs text-amber-800 font-medium">
+                                Voer het upsell linking proces uit via: <br />
+                                <code className="bg-amber-200 px-1 rounded">POST /orders/link-upsell-orders</code>
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                )}
+              </TabsContent>
+
+              <TabsContent value="ai" className="space-y-4">
                 <AIPromptCard 
                   order={order} 
                   onCopyToSongtext={handleCopyToSongtext}
                 />
-                <SongEditor
-                  ref={songtextRef}
-                  editedSongtext={editedSongtext}
-                  setEditedSongtext={setEditedSongtext}
-                  hasChanges={hasChanges}
-                  saving={saving}
-                  originalSongtext={order.songtekst || ''}
-                  onSave={handleSave}
-                  onReset={() => setEditedSongtext(order.songtekst || '')}
-                />
-                
-                {/* Suno Music Generation Card */}
-                <SunoMusicCard order={order} />
-              </>
-            )}
+              </TabsContent>
 
-            {isUpsellOrder(order) && (
-              <>
-                {hasOriginSongId(order) ? (
-                  <>
-                    <UpsellSongEditor 
-                      order={order} 
-                      onOrderUpdate={setOrder}
-                    />
-                    
-                    {/* Suno Music Generation Card for Upsell */}
-                    <SunoMusicCard order={order} />
-                  </>
-                ) : (
-                  <Card className="bg-amber-50 border-amber-200">
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-                          <span className="text-amber-600 font-semibold">!</span>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-amber-800">Upsell Order Niet Gelinkt</h3>
-                          <p className="text-sm text-amber-700">
-                            Deze upsell order is nog niet gelinkt aan een originele order.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <p className="text-sm text-amber-700">
-                          Om de originele songtekst te kunnen bewerken, moet deze upsell order eerst worden gelinkt aan de originele order.
-                        </p>
-                        <div className="bg-amber-100 p-3 rounded-lg">
-                          <p className="text-xs text-amber-800 font-medium">
-                            Voer het upsell linking proces uit via: <br />
-                            <code className="bg-amber-200 px-1 rounded">POST /orders/link-upsell-orders</code>
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
-            )}
+              <TabsContent value="music" className="space-y-4">
+                <SunoMusicCard order={order} />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
