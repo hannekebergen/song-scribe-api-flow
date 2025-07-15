@@ -35,9 +35,11 @@ const OrderDetail = () => {
 
   useEffect(() => {
     if (order) {
+      // Zet de editedSongtext alleen bij het eerste laden van de order
+      // Of wanneer de order.songtekst echt is veranderd door een server update
       setEditedSongtext(order.songtekst || '');
     }
-  }, [order]);
+  }, [order?.order_id, order?.songtekst]); // Specifieke dependencies om infinite loops te voorkomen
 
   const loadOrder = async (orderId: string) => {
     try {
@@ -82,6 +84,10 @@ const OrderDetail = () => {
       const updatedOrder = await ordersApi.updateSongtext(order.order_id, editedSongtext);
       if (updatedOrder) {
         setOrder(updatedOrder);
+        
+        // Belangrijk: Zorg ervoor dat editedSongtext synchroon blijft na opslaan
+        // Dit voorkomt dat de tekst verdwijnt bij tab switches
+        setEditedSongtext(updatedOrder.songtekst || editedSongtext);
         
         // Auto-switch naar muziek tab na succesvolle save
         setActiveTab('music');
