@@ -51,7 +51,7 @@ class AIClient:
         self.endpoints = {
             AIProvider.OPENAI: "https://api.openai.com/v1/chat/completions",
             AIProvider.CLAUDE: "https://api.anthropic.com/v1/messages",
-            AIProvider.GEMINI: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+            AIProvider.GEMINI: "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
         }
         
         logger.info(f"AI Client initialized with provider: {self.default_provider}")
