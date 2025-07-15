@@ -4,18 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { SearchIcon, EditIcon, TrashIcon, EyeIcon } from '@/components/icons/IconComponents';
 import { useThemas, useThemaCRUD, useThemaDetails } from '@/hooks/useThema';
 import { Thema, ThemaElement } from '@/services/themaApi';
 import ThemaElementsEditor from './ThemaElementsEditor';
+import ProfessionalPromptEditor from './ProfessionalPromptEditor';
 
 
 
 const ThemaList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedThemaId, setSelectedThemaId] = useState<number | null>(null);
-  const [editingThemaId, setEditingThemaId] = useState<number | null>(null);
+  const [editingElementsId, setEditingElementsId] = useState<number | null>(null);
+  const [editingPromptId, setEditingPromptId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'elements' | 'prompt'>('elements');
   const { themas, loading, error, updateParams } = useThemas();
   const { deleteThema, loading: crudLoading } = useThemaCRUD();
   const { thema: themaDetails, elements, rhymeSets, loading: detailsLoading, refetch: refetchThemaDetails } = useThemaDetails(selectedThemaId);
@@ -27,21 +31,29 @@ const ThemaList = () => {
 
   const handleEdit = (thema: Thema) => {
     setSelectedThemaId(thema.id);
-    setEditingThemaId(thema.id);
+    setEditingElementsId(thema.id);
+    setActiveTab('elements');
   };
 
   const handleView = (thema: Thema) => {
     setSelectedThemaId(thema.id);
-    setEditingThemaId(null);
+    setEditingElementsId(null);
+    setEditingPromptId(null);
   };
 
-  const handleToggleEdit = () => {
-    setEditingThemaId(editingThemaId === selectedThemaId ? null : selectedThemaId);
+  const handleToggleElementsEdit = () => {
+    setEditingElementsId(editingElementsId === selectedThemaId ? null : selectedThemaId);
+  };
+
+  const handleTogglePromptEdit = () => {
+    setEditingPromptId(editingPromptId === selectedThemaId ? null : selectedThemaId);
   };
 
   const handleCloseDialog = () => {
     setSelectedThemaId(null);
-    setEditingThemaId(null);
+    setEditingElementsId(null);
+    setEditingPromptId(null);
+    setActiveTab('elements');
   };
 
   const handleDelete = async (thema: Thema) => {
@@ -187,13 +199,31 @@ const ThemaList = () => {
                             <div className="space-y-4">
                               <p className="text-gray-600">{themaDetails.description}</p>
                               
-                              <ThemaElementsEditor
-                                themaId={selectedThemaId}
-                                elements={elements || []}
-                                isEditing={editingThemaId === selectedThemaId}
-                                onToggleEdit={handleToggleEdit}
-                                onElementsChange={refetchThemaDetails}
-                              />
+                              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'elements' | 'prompt')}>
+                                <TabsList className="grid w-full grid-cols-2">
+                                  <TabsTrigger value="elements">🎵 Elementen</TabsTrigger>
+                                  <TabsTrigger value="prompt">📝 Professionele Prompt</TabsTrigger>
+                                </TabsList>
+                                
+                                <TabsContent value="elements" className="mt-4">
+                                  <ThemaElementsEditor
+                                    themaId={selectedThemaId}
+                                    elements={elements || []}
+                                    isEditing={editingElementsId === selectedThemaId}
+                                    onToggleEdit={handleToggleElementsEdit}
+                                    onElementsChange={refetchThemaDetails}
+                                  />
+                                </TabsContent>
+                                
+                                <TabsContent value="prompt" className="mt-4">
+                                  <ProfessionalPromptEditor
+                                    thema={themaDetails}
+                                    isEditing={editingPromptId === selectedThemaId}
+                                    onToggleEdit={handleTogglePromptEdit}
+                                    onPromptUpdated={refetchThemaDetails}
+                                  />
+                                </TabsContent>
+                              </Tabs>
                             </div>
                           ) : (
                             <p>Geen thema geselecteerd</p>

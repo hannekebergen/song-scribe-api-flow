@@ -10,6 +10,7 @@ export interface Thema {
   name: string;
   display_name: string;
   description?: string;
+  professional_prompt?: string;
   is_active: boolean;
   element_count?: number;
   created_at: string;
@@ -51,6 +52,7 @@ export interface CreateThemaRequest {
   name: string;
   display_name: string;
   description?: string;
+  professional_prompt?: string;
   is_active?: boolean;
 }
 
@@ -58,6 +60,7 @@ export interface UpdateThemaRequest {
   name?: string;
   display_name?: string;
   description?: string;
+  professional_prompt?: string;
   is_active?: boolean;
 }
 
