@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request,
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import exc as sa_exc
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, Field
 
 from app.db.session import get_db
 from app.models.order import Order
@@ -594,3 +594,134 @@ async def link_upsell_orders(
         db.rollback()
         logger.error(f"Fout bij linken van UpSell orders: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Fout bij linken van UpSell orders: {str(e)}")
+
+@router.get("/{order_id}/original-songtext")
+async def get_original_songtext(
+    order_id: int = Path(..., description="Upsell order ID"),
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Haalt de originele songtekst op voor een upsell order.
+    
+    Voor upsell orders die gelinkt zijn aan een originele order via origin_song_id,
+    wordt de songtekst van die originele order opgehaald.
+    
+    Args:
+        order_id: ID van de upsell order
+        db: Database sessie
+        api_key: API key voor authenticatie
+        
+    Returns:
+        De originele songtekst en order informatie
+        
+    Raises:
+        HTTPException: Als de order niet gevonden wordt of geen originele order heeft
+    """
+    try:
+        # Haal de upsell order op
+        upsell_order = crud.get_order(db, order_id)
+        if not upsell_order:
+            raise HTTPException(status_code=404, detail="Upsell order niet gevonden")
+        
+        # Controleer of dit een upsell order is met origin_song_id
+        if not upsell_order.origin_song_id:
+            raise HTTPException(
+                status_code=400, 
+                detail="Deze order heeft geen gekoppelde originele order"
+            )
+        
+        # Haal de originele order op
+        original_order = db.query(Order).filter_by(
+            order_id=upsell_order.origin_song_id
+        ).first()
+        
+        if not original_order:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Originele order {upsell_order.origin_song_id} niet gevonden"
+            )
+        
+        # Haal de songtekst op (kan in songtekst veld of raw_data zitten)
+        original_songtext = ""
+        if hasattr(original_order, 'songtekst') and original_order.songtekst:
+            original_songtext = original_order.songtekst
+        elif original_order.raw_data and original_order.raw_data.get('songtekst'):
+            original_songtext = original_order.raw_data['songtekst']
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "original_songtext": original_songtext,
+                "original_order_id": original_order.order_id,
+                "upsell_order_id": order_id,
+                "original_order_info": {
+                    "klant_naam": original_order.klant_naam,
+                    "thema": original_order.thema,
+                    "bestel_datum": original_order.bestel_datum.isoformat() if original_order.bestel_datum else None
+                }
+            },
+            headers={"Content-Type": "application/json; charset=utf-8"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Fout bij ophalen originele songtekst voor order {order_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Er is een fout opgetreden bij het ophalen van de originele songtekst"
+        )
+
+class UpdateSongtextRequest(BaseModel):
+    songtext: str = Field(..., description="De nieuwe songtekst")
+
+@router.post("/{order_id}/update-songtext")
+async def update_order_songtext(
+    request: UpdateSongtextRequest,
+    order_id: int = Path(..., description="Order ID"),
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Werkt de songtekst van een order bij.
+    
+    Args:
+        order_id: ID van de order
+        songtext: De nieuwe songtekst
+        db: Database sessie
+        api_key: API key voor authenticatie
+        
+    Returns:
+        De bijgewerkte order
+    """
+    try:
+        order = crud.get_order(db, order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="Order niet gevonden")
+        
+        # Update de songtekst
+        # Eerst proberen als direct attribuut
+        if hasattr(order, 'songtekst'):
+            order.songtekst = request.songtext
+        else:
+            # Als fallback, sla op in raw_data
+            if not order.raw_data:
+                order.raw_data = {}
+            order.raw_data['songtekst'] = request.songtext
+        
+        db.commit()
+        
+        return JSONResponse(
+            content=OrderRead.model_validate(order).model_dump(mode='json'),
+            headers={"Content-Type": "application/json; charset=utf-8"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Fout bij bijwerken songtekst voor order {order_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Er is een fout opgetreden bij het bijwerken van de songtekst"
+        )

@@ -59,18 +59,35 @@ export const ordersApi = {
   },
 
   /**
-   * PATCH /orders/:id - Update song text for an order
-   * @param orderId The ID of the order to update
-   * @param songtekst The new song text
-   * @returns Promise resolving to the updated order or null if failed
+   * GET /orders/:id/original-songtext - Haal originele songtekst op voor upsell order
+   * @param orderId The ID of the upsell order
+   * @returns Promise resolving to original songtext data
    */
-  updateSongtext: async (orderId: string, songtekst: string): Promise<Order | null> => {
+  getOriginalSongtext: async (orderId: number) => {
     try {
-      const response = await api.patch<Order>(`/orders/${orderId}`, { songtekst });
+      const response = await api.get(`/orders/${orderId}/original-songtext`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching original songtext:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * POST /orders/:id/update-songtext - Update songtekst voor een order
+   * @param orderId The ID of the order
+   * @param songtext The new songtext
+   * @returns Promise resolving to updated order
+   */
+  updateSongtext: async (orderId: number, songtext: string): Promise<Order> => {
+    try {
+      const response = await api.post<Order>(`/orders/${orderId}/update-songtext`, {
+        songtext: songtext
+      });
       return response.data;
     } catch (error) {
       console.error('Error updating songtext:', error);
-      return null;
+      throw error;
     }
   },
 
@@ -110,6 +127,27 @@ export const ordersApi = {
     } catch (error) {
       console.error('Error syncing orders:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to sync orders');
+    }
+  },
+
+  /**
+   * POST /ai/extend-songtext - Extend existing songtext for upsell orders
+   * @param originalSongtext The original songtext to extend
+   * @param extensionType The type of extension (e.g., 'extra_coupletten')
+   * @param additionalInfo Additional information for the extension
+   * @returns Promise resolving to the extended songtext
+   */
+  extendSongtext: async (originalSongtext: string, extensionType: string, additionalInfo: string = ''): Promise<any> => {
+    try {
+      const response = await api.post(`/api/ai/extend-songtext`, {
+        original_songtext: originalSongtext,
+        extension_type: extensionType,
+        additional_info: additionalInfo
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error extending songtext:', error);
+      throw error;
     }
   }
 };

@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ordersApi } from '@/services/api';
 import { Order } from '@/types';
-import { XIcon, ArrowLeftIcon, FileTextIcon } from '@/components/icons/IconComponents';
+import { XIcon, ArrowLeftIcon, FileTextIcon, ArrowUpIcon } from '@/components/icons/IconComponents';
 import PersonalInfoCard from './order-detail/PersonalInfoCard';
 import DescriptionCard from './order-detail/DescriptionCard';
 import SongEditor from './order-detail/SongEditor';
 import AIPromptCard from './order-detail/AIPromptCard';
 import { detectOrderType } from '@/utils/orderTypeDetection';
+import UpsellSongEditor from './order-detail/UpsellSongEditor';
 
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -75,7 +76,7 @@ const OrderDetail = () => {
 
     setSaving(true);
     try {
-      const updatedOrder = await ordersApi.updateSongtext(String(order.order_id), editedSongtext);
+      const updatedOrder = await ordersApi.updateSongtext(order.order_id, editedSongtext);
       if (updatedOrder) {
         setOrder(updatedOrder);
         toast({
@@ -169,6 +170,12 @@ const OrderDetail = () => {
     });
   };
 
+  // Helper function to check if this is an upsell order
+  const isUpsellOrder = (order: Order): boolean => {
+    const orderType = detectOrderType(order);
+    return orderType.badge === 'upsell' && order.origin_song_id !== null;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
@@ -205,128 +212,105 @@ const OrderDetail = () => {
   const hasChanges = editedSongtext !== (order.songtekst || '');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="container mx-auto px-6 py-8 space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+      <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button asChild variant="outline" className="border-gray-200 hover:bg-white">
-              <Link to="/dashboard">
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/">
                 <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                Terug naar dashboard
+                Terug naar Dashboard
               </Link>
             </Button>
-            
-            <div className="space-y-1">
-              <h1 className="text-3xl font-bold text-gray-800">
-                Order #{order.order_id}
-              </h1>
-              <div className="flex items-center space-x-2">
-                <Badge variant={order.status === 'nieuw' ? 'outline' : 'default'} className="font-medium">
-                  {order.status === 'nieuw' ? 'Nieuw' : 'Gegenereerd'}
-                </Badge>
-                {hasChanges && (
-                  <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
-                    Niet opgeslagen wijzigingen
-                  </Badge>
-                )}
-              </div>
+            <div className="text-sm text-gray-500">
+              Order #{order.order_id} • {new Date(order.bestel_datum).toLocaleDateString('nl-NL')}
             </div>
           </div>
-          
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              onClick={() => handleDownload('json')}
-              variant="outline"
-              size="sm"
-              className="border-gray-200 hover:bg-gray-50"
-            >
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline" className="bg-blue-100 text-blue-800">
+              {getOrderTypeDisplay(order)}
+            </Badge>
+            <Button onClick={() => handleDownload('json')} variant="outline" size="sm">
               <FileTextIcon className="h-4 w-4 mr-2" />
-              Download JSON
+              JSON
             </Button>
-            <Button 
-              onClick={() => handleDownload('txt')}
-              variant="outline" 
-              size="sm"
-              className="border-gray-200 hover:bg-gray-50"
-            >
+            <Button onClick={() => handleDownload('txt')} variant="outline" size="sm">
               <FileTextIcon className="h-4 w-4 mr-2" />
-              Download TXT
+              TXT
             </Button>
-            <Button 
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <XIcon className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
-              Hergenereer
+            <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+              <XIcon className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          {/* Left Column - Order Details */}
+        {/* Main Content */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* Left Column - Order Info */}
           <div className="space-y-6">
-            {/* Persoonlijke Gegevens - Nu eerst */}
-            <PersonalInfoCard order={order} klantNaam={getKlantNaam(order)} />
-
-            {/* Order Informatie - Nu tweede */}
-            <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
-                  <FileTextIcon className="h-5 w-5 mr-2 text-blue-600" />
-                  Order Informatie
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Order Type</p>
-                    <p className="text-sm text-gray-900">{getOrderTypeDisplay(order)}</p>
+            <PersonalInfoCard order={order} />
+            
+            {/* Conditional rendering based on order type */}
+            {!isUpsellOrder(order) && (
+              <DescriptionCard order={order} />
+            )}
+            
+            {isUpsellOrder(order) && (
+              <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-50 to-purple-100">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-purple-800">
+                    <ArrowUpIcon className="h-5 w-5" />
+                    Upsell Order
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-purple-700">Originele Order:</span>
+                      <Badge variant="outline" className="text-purple-600">
+                        #{order.origin_song_id}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-purple-600">
+                      Deze order bouwt voort op een bestaande songtekst. 
+                      Gebruik de AI uitbreiding om extra coupletten, 
+                      een bridge of andere elementen toe te voegen.
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Thema</p>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      {order.thema || '-'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Toon</p>
-                    <p className="text-sm text-gray-900">{order.toon || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Structuur</p>
-                    <p className="text-sm text-gray-900">{order.structuur || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Deadline</p>
-                    <p className="text-sm text-gray-900">{order.deadline || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Rijm</p>
-                    <p className="text-sm text-gray-900">{order.rijm || '-'}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <DescriptionCard order={order} />
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          {/* Right Column - AI Prompt and Song Editor */}
-          <div className="space-y-6">
-            <AIPromptCard order={order} onCopyToSongtext={handleCopyToSongtext} />
-            <SongEditor
-              ref={songtextRef}
-              editedSongtext={editedSongtext}
-              setEditedSongtext={setEditedSongtext}
-              hasChanges={hasChanges}
-              saving={saving}
-              originalSongtext={order.songtekst || ''}
-              onSave={handleSave}
-              onReset={() => setEditedSongtext(order.songtekst || '')}
-            />
+          {/* Right Column - Song Content */}
+          <div className="xl:col-span-2 space-y-6">
+            {/* Conditional rendering for different order types */}
+            {!isUpsellOrder(order) && (
+              <>
+                <AIPromptCard 
+                  order={order} 
+                  onCopyToSongtext={handleCopyToSongtext}
+                />
+                <SongEditor
+                  ref={songtextRef}
+                  editedSongtext={editedSongtext}
+                  setEditedSongtext={setEditedSongtext}
+                  hasChanges={hasChanges}
+                  saving={saving}
+                  originalSongtext={order.songtekst || ''}
+                  onSave={handleSave}
+                  onReset={() => setEditedSongtext(order.songtekst || '')}
+                />
+              </>
+            )}
+
+            {isUpsellOrder(order) && (
+              <UpsellSongEditor 
+                order={order} 
+                onOrderUpdate={setOrder}
+              />
+            )}
           </div>
         </div>
       </div>
