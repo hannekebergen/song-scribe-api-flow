@@ -585,9 +585,9 @@ async def link_upsell_orders(
         db.commit()
         
         return UpdateResponse(
-            success=True,
             message=f"UpSell linking voltooid: {linked_count} orders gelinkt, {theme_inherited_count} thema's overgenomen",
-            updated_orders=linked_count
+            updated_count=linked_count,
+            total_processed=len(upsell_orders)
         )
         
     except Exception as e:
