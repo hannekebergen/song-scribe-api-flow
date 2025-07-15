@@ -91,10 +91,10 @@ export const ordersApi = {
   },
 
   /**
-   * POST /fetch - Fetch new orders from the payment provider
+   * POST /orders/fetch - Fetch new orders from the payment provider
    * @returns Promise resolving to the fetch result
    */
-  fetchOrders: () => api.post<{result: OrdersFetchResult}>('/fetch'),
+  fetchOrders: () => api.post<{result: OrdersFetchResult}>('/orders/fetch'),
   
   /**
    * Legacy method for backward compatibility
@@ -105,7 +105,7 @@ export const ordersApi = {
       // Wake the backend first to avoid cold-start issues
       await wakeBackend();
       
-      const response = await api.post<{result: OrdersFetchResult}>('/fetch');
+      const response = await api.post<{result: OrdersFetchResult}>('/orders/fetch');
       return response.data.result;
     } catch (error) {
       console.error('Error syncing orders:', error);
