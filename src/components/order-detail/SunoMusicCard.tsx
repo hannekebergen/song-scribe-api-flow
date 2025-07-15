@@ -47,8 +47,10 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSong
 
   // Update local songtext when currentSongtext changes
   useEffect(() => {
-    setLocalSongtext(currentSongtext || order.songtekst || order.beschrijving || '');
-  }, [currentSongtext, order.songtekst, order.beschrijving]);
+    // Priority: currentSongtext (from editor) > order.songtekst (saved) > empty string
+    // Don't fall back to order.beschrijving as that's the original description, not songtext
+    setLocalSongtext(currentSongtext || order.songtekst || '');
+  }, [currentSongtext, order.songtekst]);
 
   const canGenerateMusic = localSongtext.length > 50;
 

@@ -24,7 +24,7 @@ const OrderDetail = () => {
   const [editedSongtext, setEditedSongtext] = useState('');
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('songtext');
+  const [activeTab, setActiveTab] = useState<string>('ai');
   const songtextRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -173,8 +173,8 @@ const OrderDetail = () => {
     }, 100);
 
     toast({
-      title: "Gekopieerd",
-      description: "Prompt is gekopieerd naar de songtekst editor",
+      title: "Gekopieerd naar Songtekst",
+      description: "AI songtekst gekopieerd naar de songtekst editor",
     });
   };
 
@@ -300,18 +300,25 @@ const OrderDetail = () => {
           <div className="lg:col-span-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsTrigger value="ai" className="flex items-center gap-2">
+                  🤖 AI Generatie
+                </TabsTrigger>
                 <TabsTrigger value="songtext" className="flex items-center gap-2">
                   <EditIcon className="h-4 w-4" />
                   Songtekst
-                </TabsTrigger>
-                <TabsTrigger value="ai" className="flex items-center gap-2">
-                  🤖 AI Generatie
                 </TabsTrigger>
                 <TabsTrigger value="music" className="flex items-center gap-2">
                   <MusicIcon className="h-4 w-4" />
                   Muziek
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="ai" className="space-y-4">
+                <AIPromptCard 
+                  order={order} 
+                  onCopyToSongtext={handleCopyToSongtext}
+                />
+              </TabsContent>
 
               <TabsContent value="songtext" className="space-y-4">
                 {/* Conditional rendering for different order types */}
@@ -365,13 +372,6 @@ const OrderDetail = () => {
                     )}
                   </>
                 )}
-              </TabsContent>
-
-              <TabsContent value="ai" className="space-y-4">
-                <AIPromptCard 
-                  order={order} 
-                  onCopyToSongtext={handleCopyToSongtext}
-                />
               </TabsContent>
 
               <TabsContent value="music" className="space-y-4">
