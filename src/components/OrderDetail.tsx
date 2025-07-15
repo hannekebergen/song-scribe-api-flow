@@ -173,7 +173,12 @@ const OrderDetail = () => {
   // Helper function to check if this is an upsell order
   const isUpsellOrder = (order: Order): boolean => {
     const orderType = detectOrderType(order);
-    return orderType.badge === 'upsell' && order.origin_song_id !== null;
+    return orderType.badge === 'upsell';
+  };
+
+  // Helper function to check if upsell order has origin_song_id
+  const hasOriginSongId = (order: Order): boolean => {
+    return order.origin_song_id !== null && order.origin_song_id !== undefined;
   };
 
   if (loading) {
@@ -306,10 +311,41 @@ const OrderDetail = () => {
             )}
 
             {isUpsellOrder(order) && (
-              <UpsellSongEditor 
-                order={order} 
-                onOrderUpdate={setOrder}
-              />
+              <>
+                {hasOriginSongId(order) ? (
+                  <UpsellSongEditor 
+                    order={order} 
+                    onOrderUpdate={setOrder}
+                  />
+                ) : (
+                  <Card className="bg-amber-50 border-amber-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                          <span className="text-amber-600 font-semibold">!</span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-amber-800">Upsell Order Niet Gelinkt</h3>
+                          <p className="text-sm text-amber-700">
+                            Deze upsell order is nog niet gelinkt aan een originele order.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <p className="text-sm text-amber-700">
+                          Om de originele songtekst te kunnen bewerken, moet deze upsell order eerst worden gelinkt aan de originele order.
+                        </p>
+                        <div className="bg-amber-100 p-3 rounded-lg">
+                          <p className="text-xs text-amber-800 font-medium">
+                            Voer het upsell linking proces uit via: <br />
+                            <code className="bg-amber-200 px-1 rounded">POST /orders/link-upsell-orders</code>
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
           </div>
         </div>

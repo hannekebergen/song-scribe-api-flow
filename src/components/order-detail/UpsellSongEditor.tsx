@@ -65,13 +65,23 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading original songtext:', error);
-      toast({
-        title: "Fout",
-        description: "Kon originele songtekst niet laden",
-        variant: "destructive",
-      });
+      
+      // Specifieke foutafhandeling voor 400 errors (order niet gelinkt)
+      if (error.response?.status === 400) {
+        toast({
+          title: "Order niet gelinkt",
+          description: "Deze upsell order is nog niet gelinkt aan een originele order. Voer eerst het linking proces uit.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Fout",
+          description: "Kon originele songtekst niet laden",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
