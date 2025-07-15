@@ -7,7 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileTextIcon, CheckIcon } from '@/components/icons/IconComponents';
-import { aiApi, generateSongtextFromPrompt, type AIProvider } from '@/services/aiApi';
+import { 
+  aiApi, 
+  generateSongtextFromOrder, 
+  generateProfessionalSongtextFromDescription,
+  generateSongtextFromDescription,
+  type AIProvider 
+} from '@/services/aiApi';
 import { Order } from '@/types';
 
 interface AIPromptCardProps {
@@ -24,6 +30,10 @@ const AIPromptCard: React.FC<AIPromptCardProps> = ({ order, onCopyToSongtext }) 
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'prompt' | 'songtext'>('prompt');
+  const [useProfessional, setUseProfessional] = useState(false);
+
+  // Bepaal of dit een STANDARD order is
+  const isStandardOrder = order.typeOrder === 'STANDARD';
 
   // Load providers on component mount
   useEffect(() => {
@@ -39,26 +49,50 @@ const AIPromptCard: React.FC<AIPromptCardProps> = ({ order, onCopyToSongtext }) 
     };
     
     loadProviders();
-  }, []);
+    
+    // Automatisch professionele prompt voor STANDARD orders
+    if (isStandardOrder) {
+      setUseProfessional(true);
+    }
+  }, [isStandardOrder]);
 
-  const generatePromptFromOrder = () => {
-    // Genereer een basis prompt op basis van order data
-    const basePrompt = `Schrijf een emotioneel Nederlands lied met de volgende informatie:
+  const generatePromptFromOrder = async () => {
+    if (!order.beschrijving) {
+      setError('Geen beschrijving beschikbaar in de order');
+      return;
+    }
 
-Voor: ${order.voornaam || 'Onbekend'}
-Van: ${order.klant_naam || 'Onbekend'}
-Thema: ${order.thema || 'Algemeen'}
-Beschrijving: ${order.beschrijving || 'Geen beschrijving beschikbaar'}
-
-Instructies:
-- Schrijf in het Nederlands
-- Maak het persoonlijk en emotioneel
-- Gebruik een duidelijke structuur met coupletten en refrein
-- Zorg voor een memorabel en meezing-baar refrein
-- Verwerk de persoonlijke elementen uit de beschrijving`;
-
-    setPrompt(basePrompt);
-    return basePrompt;
+    try {
+      if (useProfessional) {
+        // Gebruik professionele prompt endpoint
+        const result = await generateProfessionalSongtextFromDescription(
+          order.beschrijving,
+          { temperature: 0.7 }
+        );
+        
+        // De professionele endpoint geeft direct een songtekst terug
+        setSongtext(result.songtext);
+        setPrompt('Professionele prompt gebruikt (11,698 karakters)');
+        setActiveTab('songtext');
+      } else {
+        // Gebruik gewone prompt endpoint
+        const result = await generateSongtextFromDescription(
+          order.beschrijving,
+          selectedProvider || undefined,
+          { temperature: 0.7 }
+        );
+        
+        setSongtext(result.songtext);
+        setPrompt('Gewone prompt gebruikt');
+        setActiveTab('songtext');
+      }
+      
+      setIsGenerated(true);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fout bij het genereren van songtekst');
+      console.error('Error generating songtext:', err);
+    }
   };
 
   const handleGeneratePrompt = async () => {
@@ -66,10 +100,7 @@ Instructies:
     setError('');
     
     try {
-      const generatedPrompt = generatePromptFromOrder();
-      setPrompt(generatedPrompt);
-      setIsGenerated(true);
-      setActiveTab('prompt');
+      await generatePromptFromOrder();
     } catch (err) {
       setError('Fout bij het genereren van de prompt');
       console.error('Error generating prompt:', err);
@@ -79,30 +110,8 @@ Instructies:
   };
 
   const handleGenerateSongtext = async () => {
-    if (!prompt.trim()) {
-      setError('Geen prompt beschikbaar. Genereer eerst een prompt.');
-      return;
-    }
-    
-    setIsGenerating(true);
-    setError('');
-    
-    try {
-      const result = await generateSongtextFromPrompt(
-        prompt,
-        selectedProvider || undefined,
-        { temperature: 0.7 }
-      );
-      
-      setSongtext(result.songtext);
-      setActiveTab('songtext');
-      setIsGenerated(true);
-    } catch (err) {
-      setError('Fout bij het genereren van de songtekst');
-      console.error('Error generating songtext:', err);
-    } finally {
-      setIsGenerating(false);
-    }
+    // Dit doet nu hetzelfde als handleGeneratePrompt
+    await handleGeneratePrompt();
   };
 
   const handleCopyToSongtext = () => {
@@ -115,9 +124,20 @@ Instructies:
 
   const getPlaceholderText = () => {
     if (isGenerating) {
-      return "Prompt wordt gegenereerd...";
+      return useProfessional ? 
+        "Professionele songtekst wordt gegenereerd met uitgebreide prompt..." :
+        "Songtekst wordt gegenereerd...";
     }
-    return "Klik 'Genereer Prompt' om een AI prompt te maken op basis van de order informatie";
+    return useProfessional ? 
+      "Klik 'Genereer Songtekst' om een professionele Nederlandse songtekst te genereren" :
+      "Klik 'Genereer Songtekst' om een songtekst te genereren";
+  };
+
+  const getPromptInfoText = () => {
+    if (useProfessional) {
+      return "🎨 Professionele prompt - gebruikt uitgebreide template met voorbeelden van Annie M.G. Schmidt, Andre Hazes, Stef Bos, etc.";
+    }
+    return "📝 Standaard prompt - basis Nederlandse songtekst generatie";
   };
 
   return (
@@ -147,7 +167,7 @@ Instructies:
         {providers.length > 0 && (
           <div className="flex items-center gap-2 mt-2">
             <span className="text-sm text-gray-600">AI Provider:</span>
-            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+            <Select value={selectedProvider} onValueChange={setSelectedProvider} disabled={useProfessional}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Kies AI provider" />
               </SelectTrigger>
@@ -161,6 +181,30 @@ Instructies:
             </Select>
           </div>
         )}
+        
+        {/* Professional Prompt Toggle */}
+        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg mt-3">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="professional-prompt"
+              checked={useProfessional}
+              onChange={(e) => setUseProfessional(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="professional-prompt" className="text-sm font-medium text-gray-700">
+              Professionele Prompt
+            </label>
+            {isStandardOrder && (
+              <Badge variant="secondary" className="text-xs">
+                Auto voor STANDARD
+              </Badge>
+            )}
+          </div>
+          <div className="text-xs text-gray-500 max-w-md">
+            {getPromptInfoText()}
+          </div>
+        </div>
         
         {/* Tab Navigation */}
         <div className="flex gap-1 mt-3">
@@ -198,37 +242,52 @@ Instructies:
         {/* Content based on active tab */}
         {activeTab === 'prompt' && (
           <>
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={getPlaceholderText()}
-              className="min-h-[200px] max-h-[300px] font-mono text-sm leading-relaxed border-gray-200 focus:border-blue-500 focus:ring-blue-500 resize-none"
-              disabled={isGenerating}
-            />
+            <div className="bg-gray-50 p-4 rounded-lg border">
+              <h3 className="font-medium text-gray-700 mb-2">Prompt Informatie</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                {useProfessional 
+                  ? "Er wordt een uitgebreide professionele prompt gebruikt met 11,698 karakters, inclusief voorbeelden van Nederlandse artiesten en specifieke stijlrichtlijnen."
+                  : "Er wordt een basis prompt gebruikt voor Nederlandse songtekst generatie."
+                }
+              </p>
+              
+              {order.beschrijving && (
+                <div className="mb-3">
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">Order beschrijving:</h4>
+                  <p className="text-sm text-gray-600 italic">"{order.beschrijving}"</p>
+                </div>
+              )}
+              
+              <div className="text-xs text-gray-500">
+                {useProfessional 
+                  ? "🎨 Professionele prompt actief - A2 taalniveau, natuurlijk rijm, 5-6 lettergrepen per regel"
+                  : "📝 Basis prompt actief - standaard Nederlandse songtekst generatie"
+                }
+              </div>
+            </div>
             
             <div className="flex flex-col sm:flex-row gap-3">
               <Button 
                 onClick={handleGeneratePrompt}
-                disabled={isGenerating}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isGenerating || !order.beschrijving}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
               >
                 {isGenerating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Genereren...
+                    {useProfessional ? 'Professionele songtekst genereren...' : 'Songtekst genereren...'}
                   </>
                 ) : (
-                  'Genereer Prompt'
+                  <>
+                    🎵 {useProfessional ? 'Genereer Professionele Songtekst' : 'Genereer Songtekst'}
+                  </>
                 )}
               </Button>
               
-              {prompt.trim() && !isGenerating && (
-                <Button 
-                  onClick={handleGenerateSongtext}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  🎵 Genereer Songtekst
-                </Button>
+              {!order.beschrijving && (
+                <div className="text-sm text-red-600">
+                  Geen beschrijving beschikbaar in de order
+                </div>
               )}
             </div>
           </>
@@ -239,25 +298,27 @@ Instructies:
             <Textarea
               value={songtext}
               onChange={(e) => setSongtext(e.target.value)}
-              placeholder={songtext ? "" : "Nog geen songtekst gegenereerd. Ga naar de Prompt tab en genereer eerst een prompt."}
+              placeholder={songtext ? "" : "Nog geen songtekst gegenereerd. Klik op 'Genereer Songtekst' om te beginnen."}
               className="min-h-[300px] max-h-[400px] text-sm leading-relaxed border-gray-200 focus:border-blue-500 focus:ring-blue-500 resize-none"
               disabled={isGenerating}
             />
             
             <div className="flex flex-col sm:flex-row gap-3">
-              {!songtext.trim() && prompt.trim() && (
+              {!songtext.trim() && (
                 <Button 
                   onClick={handleGenerateSongtext}
-                  disabled={isGenerating}
+                  disabled={isGenerating || !order.beschrijving}
                   className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   {isGenerating ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Songtekst genereren...
+                      {useProfessional ? 'Professionele songtekst genereren...' : 'Songtekst genereren...'}
                     </>
                   ) : (
-                    '🎵 Genereer Songtekst'
+                    <>
+                      🎵 {useProfessional ? 'Genereer Professionele Songtekst' : 'Genereer Songtekst'}
+                    </>
                   )}
                 </Button>
               )}
@@ -278,6 +339,12 @@ Instructies:
                     ✅ Gebruik Deze Songtekst
                   </Button>
                 </>
+              )}
+              
+              {!order.beschrijving && (
+                <div className="text-sm text-red-600">
+                  Geen beschrijving beschikbaar in de order
+                </div>
               )}
             </div>
           </>

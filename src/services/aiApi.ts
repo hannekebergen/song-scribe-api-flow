@@ -6,8 +6,14 @@ import { api } from './api';
 
 // Types voor AI API requests en responses
 export interface GenerateSongtextRequest {
-  prompt: string;
+  beschrijving: string;
   provider?: string;
+  max_tokens?: number;
+  temperature?: number;
+}
+
+export interface ProfessionalSongtextRequest {
+  beschrijving: string;
   max_tokens?: number;
   temperature?: number;
 }
@@ -15,7 +21,11 @@ export interface GenerateSongtextRequest {
 export interface GenerateFromOrderRequest {
   order_id: number;
   provider?: string;
+  max_tokens?: number;
   temperature?: number;
+  use_suno?: boolean;
+  use_professional_prompt?: boolean;
+  auto_professional?: boolean;
 }
 
 export interface EnhancePromptRequest {
@@ -79,7 +89,7 @@ export interface HealthResponse {
  */
 export const aiApi = {
   /**
-   * Genereer een songtekst op basis van een prompt
+   * Genereer een songtekst op basis van een beschrijving
    */
   generateSongtext: async (request: GenerateSongtextRequest): Promise<SongtextResponse> => {
     try {
@@ -88,6 +98,19 @@ export const aiApi = {
     } catch (error) {
       console.error('Error generating songtext:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to generate songtext');
+    }
+  },
+
+  /**
+   * Genereer een professionele songtekst met uitgebreide prompt
+   */
+  generateProfessionalSongtext: async (request: ProfessionalSongtextRequest): Promise<SongtextResponse> => {
+    try {
+      const response = await api.post<SongtextResponse>('/api/ai/generate-professional-songtext', request);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating professional songtext:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to generate professional songtext');
     }
   },
 
@@ -161,23 +184,37 @@ export const aiApi = {
 export const generateSongtextFromOrder = async (
   orderId: number, 
   provider?: string, 
-  temperature?: number
+  temperature?: number,
+  useProfessional?: boolean
 ): Promise<SongtextResponse> => {
   return aiApi.generateFromOrder({
     order_id: orderId,
     provider,
-    temperature
+    temperature,
+    use_professional_prompt: useProfessional,
+    auto_professional: true
   });
 };
 
-export const generateSongtextFromPrompt = async (
-  prompt: string,
+export const generateSongtextFromDescription = async (
+  beschrijving: string,
   provider?: string,
   options?: { max_tokens?: number; temperature?: number }
 ): Promise<SongtextResponse> => {
   return aiApi.generateSongtext({
-    prompt,
+    beschrijving,
     provider,
+    max_tokens: options?.max_tokens,
+    temperature: options?.temperature
+  });
+};
+
+export const generateProfessionalSongtextFromDescription = async (
+  beschrijving: string,
+  options?: { max_tokens?: number; temperature?: number }
+): Promise<SongtextResponse> => {
+  return aiApi.generateProfessionalSongtext({
+    beschrijving,
     max_tokens: options?.max_tokens,
     temperature: options?.temperature
   });
