@@ -4,15 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
 import { 
-  Trash, 
-  AlertTriangle, 
-  Info, 
-  Calendar, 
-  FileText,
-  Loader2,
-  RefreshCw 
-} from 'lucide-react';
+  TrashIcon, 
+  CheckCircleIcon, 
+  CalendarIcon, 
+  FileTextIcon, 
+  RotateIcon 
+} from '@/components/icons/IconComponents';
 import { useToast } from '@/hooks/use-toast';
 import { API } from '@/api/config';
 
@@ -170,7 +169,7 @@ const OrderCleanupManager = () => {
           <p className="text-muted-foreground">Beheer en archiveer oude orders</p>
         </div>
         <Button onClick={fetchStats} disabled={loading} variant="outline">
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RotateIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Vernieuwen
         </Button>
       </div>
@@ -197,7 +196,7 @@ const OrderCleanupManager = () => {
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{stats.recent_orders}</div>
               <Badge variant="outline" className="mt-1">
-                <Calendar className="h-3 w-3 mr-1" />
+                <CalendarIcon className="h-3 w-3 mr-1" />
                 Recent
               </Badge>
             </CardContent>
@@ -221,10 +220,10 @@ const OrderCleanupManager = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">{stats.cleanup_candidates}</div>
-                              <Badge variant="outline" className="mt-1">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  &gt; 3 maanden
-                </Badge>
+                                            <Badge variant="outline" className="mt-1">
+                <span className="mr-1">⚠️</span>
+                &gt; 3 maanden
+              </Badge>
             </CardContent>
           </Card>
         </div>
@@ -234,7 +233,7 @@ const OrderCleanupManager = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Trash2 className="h-5 w-5" />
+            <TrashIcon className="h-5 w-5" />
             Cleanup Instellingen
           </CardTitle>
         </CardHeader>
@@ -262,12 +261,12 @@ const OrderCleanupManager = () => {
               >
                 {previewMode ? (
                   <>
-                    <Info className="h-4 w-4 mr-2" />
+                    <span className="mr-2">ℹ️</span>
                     Preview Mode
                   </>
                 ) : (
                   <>
-                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    <span className="mr-2">⚠️</span>
                     Deletion Mode
                   </>
                 )}
@@ -288,7 +287,7 @@ const OrderCleanupManager = () => {
                   </>
                 ) : (
                   <>
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <TrashIcon className="h-4 w-4 mr-2" />
                     {previewMode ? 'Preview Cleanup' : 'Voer Cleanup Uit'}
                   </>
                 )}
@@ -297,7 +296,7 @@ const OrderCleanupManager = () => {
           </div>
           
           <Alert>
-            <Info className="h-4 w-4" />
+            <span className="mr-2">ℹ️</span>
             <AlertDescription>
               {previewMode ? (
                 <span>Preview mode: Geen orders worden verwijderd. Schakel naar deletion mode voor echte verwijdering.</span>
@@ -316,7 +315,7 @@ const OrderCleanupManager = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+              <FileTextIcon className="h-5 w-5" />
               Oude Orders (Preview)
             </CardTitle>
           </CardHeader>

@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'add_professional_prompts_to_themas'
+revision = 'add_prof_prompts'
 down_revision = '33dc0231c81c'
 branch_labels = None
 depends_on = None
