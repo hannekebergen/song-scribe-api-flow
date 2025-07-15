@@ -234,6 +234,42 @@ def run_origin_song_id_migration(conn_params):
         logger.error(f"Error running origin_song_id migration: {e}")
         return False
 
+def run_professional_prompt_migration(conn_params):
+    """Run the professional_prompt migration directly."""
+    try:
+        conn = psycopg2.connect(**conn_params)
+        cursor = conn.cursor()
+        
+        # Check if professional_prompt column already exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'themas' 
+                AND column_name = 'professional_prompt'
+            );
+        """)
+        
+        if cursor.fetchone()[0]:
+            logger.info("professional_prompt column already exists, skipping migration")
+            cursor.close()
+            conn.close()
+            return True
+        
+        logger.info("Adding professional_prompt column to themas table...")
+        
+        # Add professional_prompt column
+        cursor.execute("ALTER TABLE themas ADD COLUMN professional_prompt TEXT")
+        logger.info("✅ Added professional_prompt column")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error running professional_prompt migration: {e}")
+        return False
+
 def run_direct_migrations():
     """Run migrations directly without alembic."""
     start_time = time.time()
@@ -275,9 +311,17 @@ def run_direct_migrations():
             else:
                 return False
         
+        # Always run professional_prompt migration (it checks if column exists)
+        logger.info("Running professional_prompt migration...")
+        if run_professional_prompt_migration(conn_params):
+            migrations_run.append("professional_prompt")
+        else:
+            return False
+        
         # Update to final version
+        final_version = "add_prof_prompts"
         if migrations_run:
-            if not update_alembic_version(conn_params, "33dc0231c81c"):
+            if not update_alembic_version(conn_params, final_version):
                 return False
             logger.info(f"Completed migrations: {', '.join(migrations_run)}")
         else:
