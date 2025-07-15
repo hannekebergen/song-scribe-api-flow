@@ -191,7 +191,7 @@ async def generate_professional_songtext_endpoint(
     Deze endpoint gebruikt de geavanceerde prompt met alle voorbeelden en stijlrichtlijnen.
     """
     try:
-        # Voor professionele prompt gebruiken we alleen de beschrijving
+        # Voor professionele prompts gebruiken we alleen de beschrijving
         professional_prompt = generate_professional_prompt(request.beschrijving)
         
         # Genereer songtekst met de professionele prompt
