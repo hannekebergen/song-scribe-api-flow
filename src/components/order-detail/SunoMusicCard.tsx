@@ -31,7 +31,7 @@ const MUSIC_STYLES = [
 ];
 
 export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSongtext }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true); // Standaard uitgeklapt
   const [isGenerating, setIsGenerating] = useState(false);
   const [musicResult, setMusicResult] = useState<MusicResponse | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -196,7 +196,7 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSong
           <Textarea
             value={localSongtext}
             onChange={(e) => setLocalSongtext(e.target.value)}
-            className="resize-none h-24 text-sm"
+            className="resize-none h-40 text-sm"
             placeholder="Geen songtekst beschikbaar - ga naar de Songtekst tab om een songtekst te genereren of op te slaan"
           />
           {!canGenerateMusic && (
