@@ -58,15 +58,15 @@ class AIClient:
     
     def _determine_default_provider(self) -> AIProvider:
         """Bepaal welke AI provider te gebruiken op basis van beschikbare API keys"""
-        if self.openai_api_key:
+        if self.gemini_api_key:
+            return AIProvider.GEMINI
+        elif self.openai_api_key:
             return AIProvider.OPENAI
         elif self.claude_api_key:
             return AIProvider.CLAUDE
-        elif self.gemini_api_key:
-            return AIProvider.GEMINI
         else:
             logger.warning("Geen AI API keys gevonden! Gebruik dummy mode.")
-            return AIProvider.OPENAI  # Fallback
+            return AIProvider.GEMINI  # Fallback naar Gemini
     
     def _get_headers(self, provider: AIProvider) -> Dict[str, str]:
         """Get headers voor specifieke AI provider"""
