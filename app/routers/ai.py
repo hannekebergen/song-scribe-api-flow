@@ -46,7 +46,7 @@ except ImportError as e:
     USE_ASYNC = False
 
 from app.crud.order import get_order
-from app.templates.prompt_templates import generate_prompt, generate_enhanced_prompt
+from app.templates.prompt_templates import generate_prompt, generate_enhanced_prompt, generate_professional_prompt
 
 router = APIRouter(
     prefix="/api/ai",
@@ -57,9 +57,15 @@ router = APIRouter(
 # Pydantic models voor requests en responses
 class GenerateSongtextRequest(BaseModel):
     """Request model voor songtekst generatie"""
-    prompt: str = Field(..., description="De prompt voor AI songtekst generatie")
-    provider: Optional[str] = Field(None, description="AI provider (openai, claude, gemini)")
-    max_tokens: int = Field(1500, description="Maximum aantal tokens", ge=100, le=4000)
+    beschrijving: str = Field(..., description="Beschrijving voor songtekst")
+    provider: Optional[str] = Field(None, description="AI provider te gebruiken")
+    max_tokens: int = Field(2000, description="Maximum aantal tokens", ge=100, le=4000)
+    temperature: float = Field(0.7, description="Creativiteit (0.0-1.0)", ge=0.0, le=1.0)
+
+class ProfessionalSongtextRequest(BaseModel):
+    """Request model voor professionele songtekst generatie met uitgebreide prompt"""
+    beschrijving: str = Field(..., description="Beschrijving voor songtekst (gebruikt in uitgebreide prompt)")
+    max_tokens: int = Field(2000, description="Maximum aantal tokens", ge=100, le=4000)
     temperature: float = Field(0.7, description="Creativiteit (0.0-1.0)", ge=0.0, le=1.0)
 
 class EnhancePromptRequest(BaseModel):
@@ -76,11 +82,14 @@ class ExtendSongtextRequest(BaseModel):
     provider: Optional[str] = Field(None, description="AI provider te gebruiken")
 
 class GenerateFromOrderRequest(BaseModel):
-    """Request model voor songtekst generatie direct van order"""
+    """Request model voor het genereren van songtekst vanuit een order"""
     order_id: int = Field(..., description="Order ID om songtekst voor te genereren")
     provider: Optional[str] = Field(None, description="AI provider te gebruiken")
+    max_tokens: int = Field(2000, description="Maximum aantal tokens", ge=100, le=4000)
     temperature: float = Field(0.7, description="Creativiteit (0.0-1.0)", ge=0.0, le=1.0)
     use_suno: bool = Field(False, description="Gebruik Suno.ai geoptimaliseerde prompt formatting")
+    use_professional_prompt: bool = Field(False, description="Forceer het gebruik van professionele prompt")
+    auto_professional: bool = Field(True, description="Automatisch professionele prompt voor STANDARD orders")
 
 class AIResponse(BaseModel):
     """Base response model voor AI operaties"""
@@ -137,18 +146,22 @@ async def generate_songtext_endpoint(
     met behulp van AI. Ondersteunt verschillende AI providers.
     """
     try:
-        logger.info(f"Generating songtext with prompt length: {len(request.prompt)}")
+        # Genereer basic prompt van beschrijving
+        basic_prompt = f"Schrijf een Nederlandse songtekst op basis van: {request.beschrijving}"
+        logger.info(f"Generating songtext with prompt length: {len(basic_prompt)}")
         
         provider = _get_ai_provider(request.provider)
         
         result = await generate_songtext_from_prompt(
-            prompt=request.prompt,
+            prompt=basic_prompt,
             provider=provider,
             max_tokens=request.max_tokens,
             temperature=request.temperature
         )
         
         if result["success"]:
+            # Voeg prompt_length toe aan het resultaat
+            result["prompt_length"] = len(basic_prompt)
             return SongtextResponse(**result)
         else:
             raise HTTPException(
@@ -166,94 +179,148 @@ async def generate_songtext_endpoint(
             detail=ErrorResponse(error=str(e)).dict()
         )
 
+@router.post("/generate-professional-songtext", response_model=SongtextResponse)
+async def generate_professional_songtext_endpoint(
+    request: ProfessionalSongtextRequest,
+    api_key: str = Depends(get_api_key),
+    db: Session = Depends(get_db)
+):
+    """
+    Genereert een songtekst met de uitgebreide professionele prompt-template.
+    Deze endpoint gebruikt de geavanceerde prompt met alle voorbeelden en stijlrichtlijnen.
+    """
+    try:
+        # Voor professionele prompt gebruiken we alleen de beschrijving
+        professional_prompt = generate_professional_prompt(request.beschrijving)
+        
+        # Genereer songtekst met de professionele prompt
+        result = await generate_songtext_from_prompt(
+            prompt=professional_prompt,
+            provider=AIProvider.OPENAI, # Hardcoded to OPENAI for professional prompt
+            max_tokens=request.max_tokens,
+            temperature=request.temperature
+        )
+        
+        if result["success"]:
+            return SongtextResponse(
+                success=True,
+                songtext=result["songtext"],
+                prompt_length=len(professional_prompt),
+                provider=result["provider"],
+                generated_at=result["generated_at"],
+                tokens_used=result.get("tokens_used")
+            )
+        else:
+            return SongtextResponse(
+                success=False,
+                error=result.get("error", "Onbekende fout bij het genereren van professionele songtekst")
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in generate_professional_songtext_endpoint: {str(e)}")
+        return SongtextResponse(
+            success=False,
+            error=f"Fout bij het genereren van professionele songtekst: {str(e)}"
+        )
+
 @router.post("/generate-from-order", response_model=SongtextResponse)
-async def generate_songtext_from_order(
+async def generate_from_order_endpoint(
     request: GenerateFromOrderRequest,
     api_key: str = Depends(get_api_key),
     db: Session = Depends(get_db)
 ):
     """
-    Genereer een songtekst direct van een order
-    
-    Deze endpoint haalt order data op, genereert een enhanced prompt via database,
-    en maakt daar een songtekst van. Gebruikt thema database voor dynamische elementen.
+    Genereert een songtekst op basis van een order ID.
+    Kan nu ook de professionele prompt gebruiken voor STANDARD 72u orders.
     """
     try:
-        logger.info(f"Generating songtext for order: {request.order_id}")
-        
         # Haal order data op
-        order = await get_order(request.order_id)
+        order = get_order(db, request.order_id)
         if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
+            return SongtextResponse(
+                success=False,
+                error=f"Order {request.order_id} niet gevonden"
+            )
         
-        # Genereer prompt op basis van order data
-        song_data = {
-            "ontvanger": order.voor_naam or "Onbekend",
-            "van": order.klant_naam or "Onbekend", 
-            "beschrijving": order.beschrijving or "Geen beschrijving beschikbaar",
-            "stijl": order.thema or "algemeen",
-            "extra_wens": order.persoonlijk_verhaal or ""
-        }
-        
-        # 🎯 Feature-flagged prompt generation
-        user_id = str(order.order_id)  # Use order_id as user identifier for rollout
-        
-        # Check if database prompts are enabled for this request
-        if is_database_prompts_enabled(user_id) and order.thema_id:
-            try:
-                # Check if Suno.ai optimization is also enabled
-                use_suno = request.use_suno and is_suno_optimization_enabled(user_id)
-                
-                prompt = generate_enhanced_prompt(
-                    song_data=song_data,
-                    db=db,
-                    use_suno=use_suno,
-                    thema_id=order.thema_id
-                )
-                logger.info(f"Generated database-enhanced prompt: {len(prompt)} chars (thema_id: {order.thema_id}, suno: {use_suno})")
-            except Exception as e:
-                logger.warning(f"Database prompt generation failed, falling back to static: {str(e)}")
-                # Fallback to static template
-                prompt = generate_prompt(song_data)
-                logger.info(f"Generated fallback static prompt: {len(prompt)} chars")
-        else:
-            # Use legacy static template
-            prompt = generate_prompt(song_data)
-            logger.info(f"Generated static prompt: {len(prompt)} chars (database prompts disabled or no thema_id)")
-        
-        # Genereer songtekst
-        provider = _get_ai_provider(request.provider)
-        
-        result = await generate_songtext_from_prompt(
-            prompt=prompt,
-            provider=provider,
-            temperature=request.temperature
+        # Bepaal of we de professionele prompt moeten gebruiken
+        use_professional = (
+            getattr(request, 'use_professional_prompt', False) or
+            (order.typeOrder == "STANDARD" and getattr(request, 'auto_professional', True))
         )
         
-        if result["success"]:
-            return SongtextResponse(**result)
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail=ErrorResponse(
-                    error=result["error"],
-                    provider=result.get("provider")
-                ).dict()
+        if use_professional:
+            # Gebruik professionele prompt met alleen de beschrijving
+            professional_prompt = generate_professional_prompt(order.beschrijving or "")
+            result = await generate_songtext_from_prompt(
+                prompt=professional_prompt,
+                provider=AIProvider.OPENAI, # Hardcoded to OPENAI for professional prompt
+                max_tokens=request.max_tokens,
+                temperature=request.temperature
             )
-    
-    except HTTPException:
-        raise
+            
+            if result["success"]:
+                return SongtextResponse(
+                    success=True,
+                    songtext=result["songtext"],
+                    prompt_length=len(professional_prompt),
+                    provider=result["provider"],
+                    generated_at=result["generated_at"],
+                    tokens_used=result.get("tokens_used"),
+                    order_id=request.order_id
+                )
+        else:
+            # Gebruik bestaande enhanced prompt logica
+            song_data = {
+                "ontvanger": order.voornaam or "onbekend",
+                "van": order.klant_naam or "onbekend",
+                "beschrijving": order.beschrijving or "",
+                "stijl": order.thema or "algemeen",
+                "extra_wens": order.persoonlijk_verhaal or ""
+            }
+            
+            prompt = generate_enhanced_prompt(
+                song_data, 
+                db=db, 
+                use_suno=getattr(request, 'use_suno', False),
+                thema_id=order.thema_id
+            )
+            
+            result = await generate_songtext_from_prompt(
+                prompt=prompt,
+                provider=AIProvider.OPENAI, # Hardcoded to OPENAI for enhanced prompt
+                max_tokens=request.max_tokens,
+                temperature=request.temperature
+            )
+            
+            if result["success"]:
+                return SongtextResponse(
+                    success=True,
+                    songtext=result["songtext"],
+                    prompt_length=len(prompt),
+                    provider=result["provider"],
+                    generated_at=result["generated_at"],
+                    tokens_used=result.get("tokens_used"),
+                    order_id=request.order_id
+                )
+        
+        # Als we hier komen, is er een fout opgetreden
+        return SongtextResponse(
+            success=False,
+            error=result.get("error", "Onbekende fout bij het genereren van songtekst")
+        )
+        
     except Exception as e:
-        logger.error(f"Error in generate_songtext_from_order: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=ErrorResponse(error=str(e)).dict()
+        logger.error(f"Error in generate_from_order_endpoint: {str(e)}")
+        return SongtextResponse(
+            success=False,
+            error=f"Fout bij het genereren van songtekst vanaf order: {str(e)}"
         )
 
 @router.post("/enhance-prompt", response_model=PromptEnhancementResponse)
 async def enhance_prompt_endpoint(
     request: EnhancePromptRequest,
-    api_key: str = Depends(get_api_key)
+    api_key: str = Depends(get_api_key),
+    db: Session = Depends(get_db)
 ):
     """
     Verbeter een bestaande prompt op basis van order context
@@ -265,7 +332,7 @@ async def enhance_prompt_endpoint(
         logger.info(f"Enhancing prompt for order: {request.order_id}")
         
         # Haal order data op voor context
-        order = await get_order(request.order_id)
+        order = get_order(db, request.order_id)
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
         

@@ -365,7 +365,9 @@ Geef alleen de verbeterde prompt terug, geen uitleg."""
                 "success": True,
                 "enhanced_prompt": result["songtext"],
                 "original_prompt": original_prompt,
-                "provider": result["provider"]
+                "provider": result["provider"],
+                "generated_at": result["generated_at"],
+                "tokens_used": result.get("tokens_used")
             }
         else:
             return {
@@ -422,7 +424,9 @@ TAAK: Geef de VOLLEDIGE songtekst terug (origineel + uitbreiding) in dezelfde st
                 "extended_songtext": result["songtext"],
                 "original_songtext": original_songtext,
                 "extension_type": extension_type,
-                "provider": result["provider"]
+                "provider": result["provider"],
+                "generated_at": result["generated_at"],
+                "tokens_used": result.get("tokens_used")
             }
         else:
             return {
