@@ -13,6 +13,7 @@ import SongEditor from './order-detail/SongEditor';
 import AIPromptCard from './order-detail/AIPromptCard';
 import { detectOrderType } from '@/utils/orderTypeDetection';
 import UpsellSongEditor from './order-detail/UpsellSongEditor';
+import { SunoMusicCard } from './order-detail/SunoMusicCard';
 
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -307,16 +308,24 @@ const OrderDetail = () => {
                   onSave={handleSave}
                   onReset={() => setEditedSongtext(order.songtekst || '')}
                 />
+                
+                {/* Suno Music Generation Card */}
+                <SunoMusicCard order={order} />
               </>
             )}
 
             {isUpsellOrder(order) && (
               <>
                 {hasOriginSongId(order) ? (
-                  <UpsellSongEditor 
-                    order={order} 
-                    onOrderUpdate={setOrder}
-                  />
+                  <>
+                    <UpsellSongEditor 
+                      order={order} 
+                      onOrderUpdate={setOrder}
+                    />
+                    
+                    {/* Suno Music Generation Card for Upsell */}
+                    <SunoMusicCard order={order} />
+                  </>
                 ) : (
                   <Card className="bg-amber-50 border-amber-200">
                     <CardContent className="p-6">

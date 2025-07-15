@@ -41,6 +41,41 @@ export interface ExtendSongtextRequest {
   provider?: string;
 }
 
+// Suno API types
+export interface GenerateMusicRequest {
+  songtext: string;
+  title?: string;
+  style?: string;
+  instrumental?: boolean;
+}
+
+export interface GenerateMusicFromOrderRequest {
+  order_id: number;
+  style?: string;
+  instrumental?: boolean;
+  title?: string;
+}
+
+export interface MusicResponse {
+  success: boolean;
+  song_id?: string;
+  title?: string;
+  audio_url?: string;
+  video_url?: string;
+  image_url?: string;
+  style?: string;
+  model?: string;
+  created_at?: string;
+  generated_at?: string;
+  error?: string;
+}
+
+export interface SunoHealthResponse {
+  status: string;
+  has_suno_key: boolean;
+  base_url: string;
+}
+
 export interface AIResponse {
   success: boolean;
   provider: string;
@@ -176,6 +211,58 @@ export const aiApi = {
     } catch (error) {
       console.error('Error checking AI health:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to check AI health');
+    }
+  },
+
+  /**
+   * Genereer volledige muziek via Suno API
+   */
+  generateMusic: async (request: GenerateMusicRequest): Promise<MusicResponse> => {
+    try {
+      const response = await api.post<MusicResponse>('/api/ai/generate-music', request);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating music:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to generate music');
+    }
+  },
+
+  /**
+   * Genereer muziek op basis van een order
+   */
+  generateMusicFromOrder: async (request: GenerateMusicFromOrderRequest): Promise<MusicResponse> => {
+    try {
+      const response = await api.post<MusicResponse>('/api/ai/generate-music-from-order', request);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating music from order:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to generate music from order');
+    }
+  },
+
+  /**
+   * Controleer status van een Suno song
+   */
+  getSunoSongStatus: async (songId: string): Promise<any> => {
+    try {
+      const response = await api.get(`/api/ai/suno-status/${songId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error checking Suno song status:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to check song status');
+    }
+  },
+
+  /**
+   * Check Suno API health
+   */
+  sunoHealthCheck: async (): Promise<SunoHealthResponse> => {
+    try {
+      const response = await api.get<SunoHealthResponse>('/api/ai/suno-health');
+      return response.data;
+    } catch (error) {
+      console.error('Error checking Suno health:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to check Suno health');
     }
   }
 };

@@ -521,3 +521,230 @@ async def ai_health_check():
         "has_claude_key": bool(ai_client.claude_api_key),
         "has_gemini_key": bool(ai_client.gemini_api_key)
     }
+
+# Suno Music Generation Endpoints
+@router.post("/generate-music", response_model=dict)
+async def generate_music_endpoint(
+    request: dict,
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Genereer volledige muziek via Suno API op basis van songtekst
+    
+    Body parameters:
+    - songtext: De songtekst om muziek voor te genereren
+    - title: Optionele titel van het lied
+    - style: Muziekstijl (pop, jazz, acoustic, etc.)
+    - instrumental: True voor instrumentaal, False voor met zang
+    """
+    try:
+        from app.services.suno_client import generate_music_from_songtext
+        
+        # Validate required fields
+        if not request.get("songtext"):
+            raise HTTPException(
+                status_code=400,
+                detail="Songtekst is verplicht voor muziekgeneratie"
+            )
+        
+        # Validate songtext length (max 400 characters as per Suno docs)
+        songtext = request.get("songtext", "").strip()
+        if len(songtext) > 400:
+            raise HTTPException(
+                status_code=413,
+                detail="Songtekst te lang (max 400 karakters)"
+            )
+        
+        logger.info(f"Generating music with Suno API for songtext length: {len(songtext)}")
+        
+        # Generate music
+        result = await generate_music_from_songtext(
+            songtext=songtext,
+            title=request.get("title"),
+            style=request.get("style"),
+            instrumental=request.get("instrumental", False)
+        )
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "song_id": result["song_id"],
+                "title": result["title"],
+                "audio_url": result["audio_url"],
+                "video_url": result["video_url"],
+                "image_url": result["image_url"],
+                "style": result["style"],
+                "model": result["model"],
+                "created_at": result["created_at"],
+                "generated_at": result["generated_at"]
+            }
+        else:
+            # Return error from Suno API
+            raise HTTPException(
+                status_code=500,
+                detail=result["error"]
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in generate_music_endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Muziekgeneratie mislukt: {str(e)}"
+        )
+
+@router.post("/generate-music-from-order", response_model=dict)
+async def generate_music_from_order_endpoint(
+    request: dict,
+    api_key: str = Depends(get_api_key),
+    db: Session = Depends(get_db)
+):
+    """
+    Genereer muziek op basis van een order ID
+    
+    Body parameters:
+    - order_id: ID van de order
+    - style: Optionele muziekstijl override
+    - instrumental: True voor instrumentaal
+    """
+    try:
+        from app.services.suno_client import generate_music_from_songtext
+        
+        # Validate order_id
+        if not request.get("order_id"):
+            raise HTTPException(
+                status_code=400,
+                detail="Order ID is verplicht"
+            )
+        
+        # Get order
+        order = get_order(db, request["order_id"])
+        if not order:
+            raise HTTPException(
+                status_code=404,
+                detail="Order niet gevonden"
+            )
+        
+        # Check if order has songtext
+        if not order.beschrijving and not hasattr(order, 'songtext'):
+            raise HTTPException(
+                status_code=400,
+                detail="Order heeft geen songtekst voor muziekgeneratie"
+            )
+        
+        # Get songtext (try songtext field first, fallback to description)
+        songtext = ""
+        if hasattr(order, 'songtext') and order.songtext:
+            songtext = order.songtext
+        elif order.beschrijving:
+            songtext = order.beschrijving
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Geen songtekst gevonden in order"
+            )
+        
+        # Determine style based on order theme if not provided
+        style = request.get("style")
+        if not style and order.thema:
+            # Map themes to music styles
+            theme_styles = {
+                "verjaardag": "pop",
+                "liefde": "acoustic",
+                "huwelijk": "romantic",
+                "afscheid": "ballad",
+                "vaderdag": "folk",
+                "anders": "pop"
+            }
+            style = theme_styles.get(order.thema.lower(), "pop")
+        
+        # Generate title from order info
+        title = request.get("title")
+        if not title:
+            if order.klant_naam:
+                title = f"Lied voor {order.klant_naam}"
+            else:
+                title = f"Persoonlijk Lied - Order {order.order_id}"
+        
+        logger.info(f"Generating music for order {order.order_id} with style: {style}")
+        
+        # Generate music
+        result = await generate_music_from_songtext(
+            songtext=songtext,
+            title=title,
+            style=style,
+            instrumental=request.get("instrumental", False)
+        )
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "order_id": order.order_id,
+                "song_id": result["song_id"],
+                "title": result["title"],
+                "audio_url": result["audio_url"],
+                "video_url": result["video_url"],
+                "image_url": result["image_url"],
+                "style": result["style"],
+                "model": result["model"],
+                "created_at": result["created_at"],
+                "generated_at": result["generated_at"]
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=result["error"]
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in generate_music_from_order_endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Muziekgeneratie voor order mislukt: {str(e)}"
+        )
+
+@router.get("/suno-status/{song_id}")
+async def get_suno_song_status(
+    song_id: str,
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Controleer status van een Suno song generatie
+    """
+    try:
+        from app.services.suno_client import suno_client
+        
+        result = await suno_client.get_song_status(song_id)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=result["error"]
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking Suno song status: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Status check failed: {str(e)}"
+        )
+
+@router.get("/suno-health")
+async def suno_health_check(api_key: str = Depends(get_api_key)):
+    """
+    Health check voor Suno API integratie
+    """
+    from app.services.suno_client import suno_client
+    
+    return {
+        "status": "healthy" if suno_client.api_key else "no_api_key",
+        "has_suno_key": bool(suno_client.api_key),
+        "base_url": suno_client.base_url
+    }
