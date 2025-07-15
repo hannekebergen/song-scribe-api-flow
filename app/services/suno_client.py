@@ -52,16 +52,22 @@ class SunoClient:
         songtext: str, 
         title: str = None,
         style: str = None,
-        instrumental: bool = False
+        instrumental: bool = False,
+        custom_mode: bool = True,
+        model: str = "V4_5",
+        negative_tags: str = None
     ) -> Dict[str, Any]:
         """
-        Genereer muziek via Suno API (async versie)
+        Genereer muziek via Suno API (async versie) met Custom Mode ondersteuning
         
         Args:
-            songtext: De songtekst om muziek voor te genereren
-            title: Optionele titel van het lied
+            songtext: De songtekst om muziek voor te genereren (prompt in Custom Mode)
+            title: Titel van het lied
             style: Muziekstijl (pop, jazz, acoustic, etc.)
             instrumental: True voor instrumentaal, False voor met zang
+            custom_mode: True voor Custom Mode, False voor Non-custom Mode
+            model: Model versie (V3_5, V4, V4_5)
+            negative_tags: Stijlen om te vermijden
             
         Returns:
             Dict met success/error en gegenereerde muziek data
@@ -74,20 +80,32 @@ class SunoClient:
         
         if not HAS_AIOHTTP:
             # Fall back to sync version
-            return self.generate_music_sync(songtext, title, style, instrumental)
+            return self.generate_music_sync(songtext, title, style, instrumental, custom_mode, model, negative_tags)
         
         try:
-            # Prepare request data
+            # Prepare request data according to Suno API documentation
             data = {
-                "lyric": songtext,
-                "custom": True,  # We provide custom lyrics
-                "instrumental": instrumental
+                "customMode": custom_mode,
+                "instrumental": instrumental,
+                "model": model
             }
             
-            if title:
-                data["title"] = title
-            if style:
-                data["style"] = style
+            # Add required parameters for Custom Mode
+            if custom_mode:
+                if title:
+                    data["title"] = title
+                if style:
+                    data["style"] = style
+                if not instrumental and songtext:
+                    data["prompt"] = songtext
+            else:
+                # Non-custom mode - only prompt is required
+                if songtext:
+                    data["prompt"] = songtext
+            
+            # Add optional parameters
+            if negative_tags:
+                data["negativeTags"] = negative_tags
             
             # Make async request
             async with aiohttp.ClientSession() as session:
@@ -167,10 +185,13 @@ class SunoClient:
         songtext: str, 
         title: str = None,
         style: str = None,
-        instrumental: bool = False
+        instrumental: bool = False,
+        custom_mode: bool = True,
+        model: str = "V4_5",
+        negative_tags: str = None
     ) -> Dict[str, Any]:
         """
-        Genereer muziek via Suno API (sync versie)
+        Genereer muziek via Suno API (sync versie) met Custom Mode ondersteuning
         """
         if not self.api_key:
             return {
@@ -179,17 +200,29 @@ class SunoClient:
             }
         
         try:
-            # Prepare request data
+            # Prepare request data according to Suno API documentation
             data = {
-                "lyric": songtext,
-                "custom": True,  # We provide custom lyrics
-                "instrumental": instrumental
+                "customMode": custom_mode,
+                "instrumental": instrumental,
+                "model": model
             }
             
-            if title:
-                data["title"] = title
-            if style:
-                data["style"] = style
+            # Add required parameters for Custom Mode
+            if custom_mode:
+                if title:
+                    data["title"] = title
+                if style:
+                    data["style"] = style
+                if not instrumental and songtext:
+                    data["prompt"] = songtext
+            else:
+                # Non-custom mode - only prompt is required
+                if songtext:
+                    data["prompt"] = songtext
+            
+            # Add optional parameters
+            if negative_tags:
+                data["negativeTags"] = negative_tags
             
             # Make sync request
             response = requests.post(
@@ -319,20 +352,30 @@ async def generate_music_from_songtext(
     songtext: str,
     title: str = None,
     style: str = None,
-    instrumental: bool = False
+    instrumental: bool = False,
+    custom_mode: bool = True,
+    model: str = "V4_5",
+    negative_tags: str = None
 ) -> Dict[str, Any]:
     """
-    Wrapper function voor muziekgeneratie
+    Wrapper function voor muziekgeneratie met Custom Mode ondersteuning
     """
-    return await suno_client.generate_music_async(songtext, title, style, instrumental)
+    return await suno_client.generate_music_async(
+        songtext, title, style, instrumental, custom_mode, model, negative_tags
+    )
 
 def generate_music_from_songtext_sync(
     songtext: str,
     title: str = None,
     style: str = None,
-    instrumental: bool = False
+    instrumental: bool = False,
+    custom_mode: bool = True,
+    model: str = "V4_5",
+    negative_tags: str = None
 ) -> Dict[str, Any]:
     """
-    Sync wrapper function voor muziekgeneratie
+    Sync wrapper function voor muziekgeneratie met Custom Mode ondersteuning
     """
-    return suno_client.generate_music_sync(songtext, title, style, instrumental) 
+    return suno_client.generate_music_sync(
+        songtext, title, style, instrumental, custom_mode, model, negative_tags
+    ) 

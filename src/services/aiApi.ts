@@ -43,10 +43,23 @@ export interface ExtendSongtextRequest {
 
 // Suno API types
 export interface GenerateMusicRequest {
-  songtext: string;
-  title?: string;
+  // Custom Mode parameters
+  customMode: boolean;
+  instrumental: boolean;
+  model: string;
+  
+  // Required in Custom Mode
   style?: string;
-  instrumental?: boolean;
+  title?: string;
+  
+  // Prompt - required if instrumental is false in Custom Mode
+  prompt?: string;
+  
+  // Optional parameters
+  negativeTags?: string;
+  
+  // Legacy support for old API calls
+  songtext?: string;
 }
 
 export interface GenerateMusicFromOrderRequest {

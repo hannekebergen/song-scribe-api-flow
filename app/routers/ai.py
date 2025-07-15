@@ -529,40 +529,95 @@ async def generate_music_endpoint(
     api_key: str = Depends(get_api_key)
 ):
     """
-    Genereer volledige muziek via Suno API op basis van songtekst
+    Genereer volledige muziek via Suno API met Custom Mode ondersteuning
     
     Body parameters:
-    - songtext: De songtekst om muziek voor te genereren
-    - title: Optionele titel van het lied
-    - style: Muziekstijl (pop, jazz, acoustic, etc.)
+    - customMode: True voor Custom Mode, False voor Non-custom Mode
     - instrumental: True voor instrumentaal, False voor met zang
+    - model: Model versie (V3_5, V4, V4_5)
+    - style: Muziekstijl (verplicht in Custom Mode)
+    - title: Titel van het lied (verplicht in Custom Mode)
+    - prompt: Songtekst (verplicht als instrumental=False in Custom Mode)
+    - negativeTags: Stijlen om te vermijden (optioneel)
+    - songtext: Legacy parameter (wordt gemapped naar prompt)
     """
     try:
         from app.services.suno_client import generate_music_from_songtext
         
-        # Validate required fields
-        if not request.get("songtext"):
-            raise HTTPException(
-                status_code=400,
-                detail="Songtekst is verplicht voor muziekgeneratie"
-            )
+        # Check if we're using Custom Mode
+        custom_mode = request.get("customMode", False)
+        instrumental = request.get("instrumental", False)
         
-        # Validate songtext length (max 400 characters as per Suno docs)
-        songtext = request.get("songtext", "").strip()
-        if len(songtext) > 400:
-            raise HTTPException(
-                status_code=413,
-                detail="Songtekst te lang (max 400 karakters)"
-            )
+        # Get prompt from either 'prompt' or legacy 'songtext' parameter
+        prompt = request.get("prompt") or request.get("songtext", "")
         
-        logger.info(f"Generating music with Suno API for songtext length: {len(songtext)}")
+        # Validate required fields for Custom Mode
+        if custom_mode:
+            if not request.get("style"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Style is verplicht in Custom Mode"
+                )
+            if not request.get("title"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Title is verplicht in Custom Mode"
+                )
+            if not instrumental and not prompt:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Prompt is verplicht als instrumental=False in Custom Mode"
+                )
+        else:
+            # Non-custom mode validation
+            if not prompt:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Prompt is verplicht voor muziekgeneratie"
+                )
+            if len(prompt) > 400:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Prompt te lang (max 400 karakters in Non-custom Mode)"
+                )
         
-        # Generate music
+        # Validate length limits for Custom Mode
+        if custom_mode:
+            model = request.get("model", "V4_5")
+            max_prompt = 5000 if model == "V4_5" else 3000
+            max_style = 1000 if model == "V4_5" else 200
+            
+            if prompt and len(prompt) > max_prompt:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Prompt te lang voor {model} model (max {max_prompt} karakters)"
+                )
+            
+            style = request.get("style", "")
+            if len(style) > max_style:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Style te lang voor {model} model (max {max_style} karakters)"
+                )
+            
+            title = request.get("title", "")
+            if len(title) > 80:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Title te lang (max 80 karakters)"
+                )
+        
+        logger.info(f"Generating music with Suno API - Custom Mode: {custom_mode}, Instrumental: {instrumental}, Prompt length: {len(prompt)}")
+        
+        # Generate music - pass all parameters to the client
         result = await generate_music_from_songtext(
-            songtext=songtext,
+            songtext=prompt,  # For backward compatibility
             title=request.get("title"),
             style=request.get("style"),
-            instrumental=request.get("instrumental", False)
+            instrumental=instrumental,
+            custom_mode=custom_mode,
+            model=request.get("model", "V4_5"),
+            negative_tags=request.get("negativeTags")
         )
         
         if result["success"]:
