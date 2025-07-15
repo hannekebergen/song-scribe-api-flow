@@ -51,7 +51,7 @@ class AIClient:
         self.endpoints = {
             AIProvider.OPENAI: "https://api.openai.com/v1/chat/completions",
             AIProvider.CLAUDE: "https://api.anthropic.com/v1/messages",
-            AIProvider.GEMINI: "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+            AIProvider.GEMINI: "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent"
         }
         
         logger.info(f"AI Client initialized with provider: {self.default_provider}")
@@ -138,9 +138,9 @@ class AIClient:
             }],
             "generationConfig": {
                 "temperature": temperature,
-                "maxOutputTokens": 1500,
-                "topP": 1,
-                "topK": 40
+                "maxOutputTokens": 2000,  # Verhoogd voor Gemini 2.5 Pro
+                "topP": 0.95,  # Optimaal voor creatieve content
+                "topK": 32  # Aangepast voor Gemini 2.5 Pro
             }
         }
     
@@ -246,7 +246,23 @@ class AIClient:
             elif provider == AIProvider.CLAUDE:
                 return response["content"][0]["text"].strip()
             elif provider == AIProvider.GEMINI:
-                return response["candidates"][0]["content"]["parts"][0]["text"].strip()
+                # Probeer verschillende mogelijke structures voor Gemini 2.0+
+                if "candidates" in response and response["candidates"]:
+                    candidate = response["candidates"][0]
+                    if "content" in candidate:
+                        content = candidate["content"]
+                        if "parts" in content and content["parts"]:
+                            return content["parts"][0]["text"].strip()
+                        elif "text" in content:
+                            return content["text"].strip()
+                    elif "text" in candidate:
+                        return candidate["text"].strip()
+                
+                # Fallback: zoek naar text in de hele response
+                if "text" in response:
+                    return response["text"].strip()
+                
+                return "Error: Could not find text in Gemini response"
             else:
                 return "Error: Unknown provider"
         except (KeyError, IndexError) as e:
