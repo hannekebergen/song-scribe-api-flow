@@ -168,6 +168,7 @@ class ThemaService:
         return {
             'thema_name': thema.name,
             'display_name': thema.display_name,
+            'professional_prompt': thema.professional_prompt,
             'keywords': [el.content for el in keywords],
             'power_phrases': [el.content for el in power_phrases],
             'genres': [el.content for el in genres],

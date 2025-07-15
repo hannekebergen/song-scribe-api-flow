@@ -3,12 +3,16 @@ Admin API endpoints voor Thema database management
 """
 
 from typing import List, Optional
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, func
+from pydantic import BaseModel, Field
 
 from app.db.session import get_db
 from app.auth.token import get_api_key
 from app.crud.thema import get_thema_crud
+from app.models.order import Order
 from app.schemas.thema import (
     Thema, ThemaCreate, ThemaUpdate, ThemaListItem, ThemaStats,
     ThemaElement, ThemaElementCreate, ThemaElementUpdate,
@@ -343,4 +347,200 @@ async def bulk_toggle_thema_active(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Fout bij bulk update: {str(e)}"
+        )
+
+# Order Management endpoints
+class OrderArchiveRequest(BaseModel):
+    """Request model voor order archivering"""
+    order_ids: List[int] = Field(..., description="Lijst van order IDs om te archiveren")
+
+class OrderDeleteRequest(BaseModel):
+    """Request model voor order verwijdering"""
+    order_ids: List[int] = Field(..., description="Lijst van order IDs om te verwijderen")
+    confirm: bool = Field(False, description="Bevestiging voor verwijdering (moet True zijn)")
+
+class OrderCleanupRequest(BaseModel):
+    """Request model voor automatische cleanup van oude orders"""
+    days_old: int = Field(90, ge=30, le=365, description="Orders ouder dan X dagen")
+    dry_run: bool = Field(True, description="Droog-run (geen echte verwijdering)")
+
+class OrderManagementResponse(BaseModel):
+    """Response model voor order management operaties"""
+    success: bool
+    processed_count: int
+    failed_count: int
+    message: str
+    affected_orders: Optional[List[int]] = None
+
+@router.get("/orders/stats")
+async def get_order_stats(db: Session = Depends(get_db)):
+    """Haal order statistieken op voor cleanup management"""
+    try:
+        total_orders = db.query(Order).count()
+        
+        # Orders per leeftijd
+        now = datetime.utcnow()
+        week_ago = now - timedelta(days=7)
+        month_ago = now - timedelta(days=30)
+        quarter_ago = now - timedelta(days=90)
+        year_ago = now - timedelta(days=365)
+        
+        recent_orders = db.query(Order).filter(Order.bestel_datum >= week_ago).count()
+        month_orders = db.query(Order).filter(
+            and_(Order.bestel_datum >= month_ago, Order.bestel_datum < week_ago)
+        ).count()
+        quarter_orders = db.query(Order).filter(
+            and_(Order.bestel_datum >= quarter_ago, Order.bestel_datum < month_ago)
+        ).count()
+        old_orders = db.query(Order).filter(Order.bestel_datum < quarter_ago).count()
+        
+        return {
+            "total_orders": total_orders,
+            "recent_orders": recent_orders,  # < 1 week
+            "month_orders": month_orders,    # 1 week - 1 month
+            "quarter_orders": quarter_orders, # 1 month - 3 months
+            "old_orders": old_orders,        # > 3 months
+            "cleanup_candidates": old_orders,
+            "stats_generated_at": now.isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Fout bij ophalen order statistieken: {str(e)}"
+        )
+
+@router.get("/orders/old")
+async def get_old_orders(
+    days_old: int = Query(90, ge=30, le=365, description="Orders ouder dan X dagen"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum aantal resultaten"),
+    db: Session = Depends(get_db)
+):
+    """Haal oude orders op die kandidaat zijn voor cleanup"""
+    try:
+        cutoff_date = datetime.utcnow() - timedelta(days=days_old)
+        
+        old_orders = db.query(Order).filter(
+            Order.bestel_datum < cutoff_date
+        ).order_by(Order.bestel_datum.asc()).limit(limit).all()
+        
+        return {
+            "cutoff_date": cutoff_date.isoformat(),
+            "days_old": days_old,
+            "count": len(old_orders),
+            "orders": [
+                {
+                    "id": order.id,
+                    "order_id": order.order_id,
+                    "klant_naam": order.klant_naam,
+                    "bestel_datum": order.bestel_datum.isoformat() if order.bestel_datum else None,
+                    "thema": order.thema,
+                    "product_naam": order.product_naam
+                }
+                for order in old_orders
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Fout bij ophalen oude orders: {str(e)}"
+        )
+
+@router.delete("/orders/bulk-delete", response_model=OrderManagementResponse)
+async def bulk_delete_orders(
+    request: OrderDeleteRequest,
+    db: Session = Depends(get_db)
+):
+    """Bulk verwijdering van orders (definitief!)"""
+    try:
+        if not request.confirm:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Bevestiging vereist voor verwijdering (confirm=True)"
+            )
+        
+        if len(request.order_ids) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Maximum 100 orders per keer verwijderen"
+            )
+        
+        # Verwijder orders
+        deleted_count = db.query(Order).filter(
+            Order.id.in_(request.order_ids)
+        ).delete(synchronize_session=False)
+        
+        db.commit()
+        
+        return OrderManagementResponse(
+            success=True,
+            processed_count=deleted_count,
+            failed_count=len(request.order_ids) - deleted_count,
+            message=f"{deleted_count} orders succesvol verwijderd",
+            affected_orders=request.order_ids[:deleted_count]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Fout bij verwijderen orders: {str(e)}"
+        )
+
+@router.post("/orders/cleanup", response_model=OrderManagementResponse)
+async def cleanup_old_orders(
+    request: OrderCleanupRequest,
+    db: Session = Depends(get_db)
+):
+    """Automatische cleanup van oude orders"""
+    try:
+        cutoff_date = datetime.utcnow() - timedelta(days=request.days_old)
+        
+        # Zoek orders die verwijderd zouden worden
+        old_orders_query = db.query(Order).filter(
+            Order.bestel_datum < cutoff_date
+        )
+        
+        if request.dry_run:
+            # Dry run: tel alleen
+            count = old_orders_query.count()
+            sample_orders = old_orders_query.limit(10).all()
+            
+            return OrderManagementResponse(
+                success=True,
+                processed_count=0,
+                failed_count=0,
+                message=f"DRY RUN: {count} orders zouden worden verwijderd (ouder dan {request.days_old} dagen)",
+                affected_orders=[order.id for order in sample_orders]
+            )
+        else:
+            # Echte verwijdering
+            old_orders = old_orders_query.all()
+            order_ids = [order.id for order in old_orders]
+            
+            if len(order_ids) > 500:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Te veel orders voor cleanup ({len(order_ids)}). Maximum 500 per keer."
+                )
+            
+            deleted_count = old_orders_query.delete(synchronize_session=False)
+            db.commit()
+            
+            return OrderManagementResponse(
+                success=True,
+                processed_count=deleted_count,
+                failed_count=0,
+                message=f"Cleanup voltooid: {deleted_count} oude orders verwijderd",
+                affected_orders=order_ids
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Fout bij cleanup: {str(e)}"
         ) 

@@ -65,6 +65,7 @@ class GenerateSongtextRequest(BaseModel):
 class ProfessionalSongtextRequest(BaseModel):
     """Request model voor professionele songtekst generatie met uitgebreide prompt"""
     beschrijving: str = Field(..., description="Beschrijving voor songtekst (gebruikt in uitgebreide prompt)")
+    thema_id: Optional[int] = Field(None, description="Optionele thema ID voor thema-specifieke prompt")
     max_tokens: int = Field(2000, description="Maximum aantal tokens", ge=100, le=4000)
     temperature: float = Field(0.7, description="Creativiteit (0.0-1.0)", ge=0.0, le=1.0)
 
@@ -409,6 +410,66 @@ async def extend_songtext_endpoint(
         raise
     except Exception as e:
         logger.error(f"Error in extend_songtext_endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(error=str(e)).dict()
+        )
+
+@router.post("/generate-professional-songtext", response_model=SongtextResponse)
+async def generate_professional_songtext_endpoint(
+    request: ProfessionalSongtextRequest,
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Genereer een songtekst met professionele thema-specifieke prompts
+    
+    Deze endpoint gebruikt professionele prompts die per thema zijn gedefinieerd
+    in de database. Als geen thema_id wordt opgegeven, wordt de algemene 
+    professionele prompt gebruikt.
+    """
+    try:
+        # Genereer professionele prompt
+        song_data = {"beschrijving": request.beschrijving}
+        
+        professional_prompt = generate_enhanced_prompt(
+            song_data=song_data,
+            db=db,
+            use_suno=False,
+            thema_id=request.thema_id,
+            use_professional=True
+        )
+        
+        # Call AI service
+        result = await generate_songtext_from_prompt(
+            prompt=professional_prompt,
+            provider=_get_ai_provider("openai"),  # Default to OpenAI for professional prompts
+            max_tokens=request.max_tokens,
+            temperature=request.temperature
+        )
+        
+        if result["success"]:
+            return SongtextResponse(
+                success=True,
+                songtext=result["songtext"],
+                provider=result["provider"],
+                tokens_used=result.get("tokens_used"),
+                generated_at=result["generated_at"],
+                prompt_length=len(professional_prompt)
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=ErrorResponse(
+                    error=result["error"],
+                    provider=result.get("provider")
+                ).dict()
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in generate_professional_songtext_endpoint: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=ErrorResponse(error=str(e)).dict()

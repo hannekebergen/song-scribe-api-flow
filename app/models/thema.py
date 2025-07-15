@@ -16,6 +16,7 @@ class Thema(Base):
     name = Column(String(50), unique=True, nullable=False, index=True)
     display_name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
+    professional_prompt = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)

@@ -9,6 +9,7 @@ import StatsCards from './dashboard/StatsCards';
 import FiltersSection from './dashboard/FiltersSection';
 import OrdersTable from './dashboard/OrdersTable';
 import ThemaManagement from './dashboard/ThemaManagement';
+import OrderCleanupManager from './dashboard/OrderCleanupManager';
 
 const Dashboard = () => {
   const { mappedOrders, loading: ordersLoading, fetchOrders } = useFetchOrders();
@@ -77,12 +78,15 @@ const Dashboard = () => {
 
         {/* Tabbed Interface */}
         <Tabs defaultValue="orders" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-3 bg-white shadow-sm">
+          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               📦 Orders
             </TabsTrigger>
             <TabsTrigger value="thema" className="flex items-center gap-2">
               🎵 Thema's
+            </TabsTrigger>
+            <TabsTrigger value="cleanup" className="flex items-center gap-2">
+              🗑️ Cleanup
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               📊 Analytics
@@ -97,7 +101,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               {/* Fetch Orders Card */}
               <div className="lg:col-span-1">
-                <FetchOrdersCard />
+                <FetchOrdersCard onOrdersUpdated={fetchOrders} />
               </div>
               
               {/* Filters */}
@@ -120,6 +124,10 @@ const Dashboard = () => {
 
           <TabsContent value="thema" className="space-y-8">
             <ThemaManagement />
+          </TabsContent>
+
+          <TabsContent value="cleanup" className="space-y-8">
+            <OrderCleanupManager />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-8">

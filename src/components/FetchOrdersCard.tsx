@@ -1,112 +1,91 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { wakeBackend } from '@/api/wakeBackend';
-import { API } from '@/api/config';
+import { Button } from '@/components/ui/button';
+import { Download, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { ordersApi } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 
-interface FetchResult {
-  new_orders: number;
-  skipped_orders: number;
+interface FetchOrdersCardProps {
+  onOrdersUpdated: () => void;
 }
 
-const FetchOrdersCard = () => {
+const FetchOrdersCard = ({ onOrdersUpdated }: FetchOrdersCardProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [isWakingBackend, setIsWakingBackend] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<FetchResult | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const { toast } = useToast();
 
   const handleFetchOrders = async () => {
     setIsLoading(true);
-    setError(null);
-    setResult(null);
-
     try {
-      // Wake backend before fetching orders to avoid cold-start 404
-      setIsWakingBackend(true);
-      try {
-        await wakeBackend();
-      } catch (wakeError) {
-        throw new Error(`Backend wake-up mislukt: ${wakeError instanceof Error ? wakeError.message : 'Onbekende fout'}`);
-      } finally {
-        setIsWakingBackend(false);
-      }
+      const result = await ordersApi.syncOrders();
+      setLastSync(new Date());
       
-      const response = await fetch(`${API}/orders/fetch`, {
-        method: 'POST',
-        headers: {
-          'X-API-Key': 'jouwsong2025',
-          'Content-Type': 'application/json',
-        },
+      // Auto-refresh orders na sync
+      setTimeout(() => {
+        onOrdersUpdated();
+      }, 1000);
+      
+      toast({
+        title: "Orders gesynchroniseerd",
+        description: `${result.new_orders} nieuwe orders toegevoegd, ${result.skipped_orders} orders overgeslagen`,
+        duration: 5000,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.result) {
-        setResult(data.result);
-      } else {
-        throw new Error('Onverwacht response format');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Er is een fout opgetreden');
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast({
+        title: "Fout bij synchronisatie",
+        description: "Er is een fout opgetreden bij het ophalen van orders",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Card className="bg-white shadow-sm border rounded-lg">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Download className="h-5 w-5" />
-          Orders Ophalen
+          Orders Synchroniseren
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Haal de nieuwste orders op van Plug&Pay en werk de database bij.
+        </p>
+        
+        {lastSync && (
+          <div className="flex items-center gap-2 text-sm text-green-600">
+            <CheckCircle className="h-4 w-4" />
+            Laatste sync: {lastSync.toLocaleString('nl-NL')}
+          </div>
+        )}
+        
         <Button 
-          onClick={handleFetchOrders}
+          onClick={handleFetchOrders} 
           disabled={isLoading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+          className="w-full"
         >
-          {isLoading ? 'Bezig met ophalen...' : 'Haal nieuwe orders op'}
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Bezig met synchroniseren...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Haal Orders Op
+            </>
+          )}
         </Button>
-
-        {isWakingBackend && (
-          <div className="flex items-center justify-center gap-2 text-center text-gray-600 p-4">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Backend wordt opgestart (max 30s)...</span>
-          </div>
-        )}
-
-        {isLoading && !isWakingBackend && (
-          <div className="text-center text-gray-600 p-4">
-            Bezig met ophalen...
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-md">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <span className="text-red-700">{error}</span>
-          </div>
-        )}
-
-        {result && (
-          <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-md">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <div className="text-green-700">
-              <div>Succesvol opgehaald!</div>
-              <div className="text-sm">
-                Nieuwe orders: {result.new_orders} | Overgeslagen: {result.skipped_orders}
-              </div>
-            </div>
-          </div>
-        )}
+        
+        <div className="text-xs text-muted-foreground">
+          <p>• Orders worden automatisch bijgewerkt na synchronisatie</p>
+          <p>• Bestaande orders worden overgeslagen</p>
+          <p>• Nieuwe orders worden direct zichtbaar</p>
+        </div>
       </CardContent>
     </Card>
   );

@@ -538,10 +538,6 @@ def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool
     Returns:
         Een gegenereerde prompt string
     """
-    # Als professionele prompt gevraagd wordt, gebruik die direct
-    if use_professional:
-        return generate_professional_prompt(song_data.get("beschrijving", ""))
-    
     thema_service = get_thema_service(db)
     
     # Hybrid thema data ophalen: prioriteit aan thema_id, fallback naar string
@@ -549,6 +545,14 @@ def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool
         thema_data = thema_service.generate_thema_data(thema_id=thema_id)
     else:
         thema_data = thema_service.generate_thema_data(thema_name=song_data.get("stijl"))
+    
+    # Als professionele prompt gevraagd wordt, gebruik thema-specifieke prompt
+    if use_professional:
+        if thema_data and thema_data.get('professional_prompt'):
+            return thema_data['professional_prompt'].format(beschrijving=song_data.get("beschrijving", ""))
+        else:
+            # Fallback naar algemene professionele prompt
+            return generate_professional_prompt(song_data.get("beschrijving", ""))
     
     # Zorg ervoor dat extra_wens een waarde heeft
     if "extra_wens" not in song_data or not song_data["extra_wens"]:
