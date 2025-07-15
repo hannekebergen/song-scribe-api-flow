@@ -8,43 +8,17 @@ import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescript
 import { SearchIcon, EditIcon, TrashIcon, EyeIcon } from '@/components/icons/IconComponents';
 import { useThemas, useThemaCRUD, useThemaDetails } from '@/hooks/useThema';
 import { Thema, ThemaElement } from '@/services/themaApi';
+import ThemaElementsEditor from './ThemaElementsEditor';
 
-// Helper component for displaying elements list with expand functionality
-const ElementsList: React.FC<{ elements: ThemaElement[] }> = ({ elements }) => {
-  const [showAll, setShowAll] = useState(false);
-  const displayElements = showAll ? elements : elements.slice(0, 12);
 
-  return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-        {displayElements.map((element, idx) => (
-          <div key={idx} className="bg-gray-50 p-2 rounded text-xs">
-            <span className="font-medium text-blue-600">{element.element_type}:</span> {element.content}
-          </div>
-        ))}
-      </div>
-      {elements.length > 12 && (
-        <div className="text-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAll(!showAll)}
-            className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-          >
-            {showAll ? 'Toon minder' : `+${elements.length - 12} meer...`}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const ThemaList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedThemaId, setSelectedThemaId] = useState<number | null>(null);
+  const [editingThemaId, setEditingThemaId] = useState<number | null>(null);
   const { themas, loading, error, updateParams } = useThemas();
   const { deleteThema, loading: crudLoading } = useThemaCRUD();
-  const { thema: themaDetails, elements, rhymeSets, loading: detailsLoading } = useThemaDetails(selectedThemaId);
+  const { thema: themaDetails, elements, rhymeSets, loading: detailsLoading, refetch: refetchThemaDetails } = useThemaDetails(selectedThemaId);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
@@ -52,13 +26,22 @@ const ThemaList = () => {
   };
 
   const handleEdit = (thema: Thema) => {
-    console.log('Edit thema:', thema.name);
-    // TODO: Implement edit functionality
-    alert(`Edit functionaliteit wordt binnenkort toegevoegd voor: ${thema.display_name}`);
+    setSelectedThemaId(thema.id);
+    setEditingThemaId(thema.id);
   };
 
   const handleView = (thema: Thema) => {
     setSelectedThemaId(thema.id);
+    setEditingThemaId(null);
+  };
+
+  const handleToggleEdit = () => {
+    setEditingThemaId(editingThemaId === selectedThemaId ? null : selectedThemaId);
+  };
+
+  const handleCloseDialog = () => {
+    setSelectedThemaId(null);
+    setEditingThemaId(null);
   };
 
   const handleDelete = async (thema: Thema) => {
@@ -177,7 +160,7 @@ const ThemaList = () => {
               </div>
               
               <div className="flex items-center gap-2">
-                <AlertDialog>
+                                <AlertDialog open={selectedThemaId !== null} onOpenChange={(open) => !open && handleCloseDialog()}>
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="ghost"
@@ -188,65 +171,38 @@ const ThemaList = () => {
                       <EyeIcon className="h-4 w-4" />
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <AlertDialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                     <AlertDialogHeader>
                       <AlertDialogTitle>
                         {selectedThemaId && themaDetails ? themaDetails.display_name : 'Thema Details'}
                       </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {detailsLoading ? (
-                          <div className="space-y-2">
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-3/4" />
-                          </div>
-                        ) : selectedThemaId && themaDetails ? (
-                                                      <div className="space-y-4">
-                             <p>{themaDetails.description}</p>
-                             
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                               <div>
-                                 <h4 className="font-semibold mb-2">Basis Info</h4>
-                                 <div className="space-y-1 text-sm">
-                                   <p><strong>Naam:</strong> {themaDetails.name}</p>
-                                   <p><strong>Status:</strong> {themaDetails.is_active ? '🟢 Actief' : '🔴 Inactief'}</p>
-                                   <p><strong>Elementen:</strong> {elements?.length || 0}</p>
-                                   <p><strong>Rijmsets:</strong> {rhymeSets?.length || 0}</p>
-                                 </div>
-                               </div>
-                               
-                               {elements && elements.length > 0 && (
-                                 <div>
-                                   <h4 className="font-semibold mb-2">Element Types</h4>
-                                   <div className="space-y-1 text-sm">
-                                     {Object.entries(
-                                       elements.reduce((acc, el) => {
-                                         acc[el.element_type] = (acc[el.element_type] || 0) + 1;
-                                         return acc;
-                                       }, {} as Record<string, number>)
-                                     ).map(([type, count]) => (
-                                       <p key={type}>
-                                         <strong>{type}:</strong> {count} stuks
-                                       </p>
-                                     ))}
-                                   </div>
-                                 </div>
-                               )}
-                             </div>
-                             
-                             {elements && elements.length > 0 && (
-                               <div>
-                                 <h4 className="font-semibold mb-2">Voorbeeld Elementen</h4>
-                                 <ElementsList elements={elements} />
-                               </div>
-                             )}
-                          </div>
-                        ) : (
-                          <p>Geen thema geselecteerd</p>
-                        )}
+                      <AlertDialogDescription asChild>
+                        <div>
+                          {detailsLoading ? (
+                            <div className="space-y-2">
+                              <Skeleton className="h-4 w-full" />
+                              <Skeleton className="h-4 w-3/4" />
+                            </div>
+                          ) : selectedThemaId && themaDetails ? (
+                            <div className="space-y-4">
+                              <p className="text-gray-600">{themaDetails.description}</p>
+                              
+                              <ThemaElementsEditor
+                                themaId={selectedThemaId}
+                                elements={elements || []}
+                                isEditing={editingThemaId === selectedThemaId}
+                                onToggleEdit={handleToggleEdit}
+                                onElementsChange={refetchThemaDetails}
+                              />
+                            </div>
+                          ) : (
+                            <p>Geen thema geselecteerd</p>
+                          )}
+                        </div>
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogAction>Sluiten</AlertDialogAction>
+                      <AlertDialogAction onClick={handleCloseDialog}>Sluiten</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
