@@ -44,9 +44,4 @@ def run_upsell_linking():
         return False
 
 if __name__ == "__main__":
-    success = run_upsell_linking()
-    if success:
-        print("\n🎉 UpSell linking completed successfully!")
-        print("💡 You can now refresh the page and the original songtext should be visible.")
-    else:
-        print("\n❌ UpSell linking failed. Check the logs above.") 
+    run_upsell_linking() 
