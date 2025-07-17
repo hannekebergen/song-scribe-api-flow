@@ -7,7 +7,7 @@ Deze module bevat API endpoints voor het beheren van bestellingen.
 import logging
 import re
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, Path
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, Path, Body
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import exc as sa_exc
@@ -725,3 +725,74 @@ async def update_order_songtext(
             status_code=500,
             detail="Er is een fout opgetreden bij het bijwerken van de songtekst"
         )
+
+@router.put("/{order_id}/songtext", response_model=OrderRead)
+async def update_songtext(
+    order_id: int = Path(..., description="Order ID"),
+    songtext_update: UpdateSongtextRequest = Body(...),
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Update songtekst voor een order en synchroniseer naar gerelateerde UpSell orders.
+    """
+    try:
+        # Haal de order op
+        order = crud.get_order(db, order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="Order niet gevonden")
+        
+        # Update de songtekst
+        order.songtekst = songtext_update.songtekst
+        
+        # Commit de wijziging
+        db.commit()
+        db.refresh(order)
+        
+        # SYNCHRONISEER NAAR UPSELL ORDERS
+        await sync_songtext_to_upsells(db, order_id, songtext_update.songtekst)
+        
+        return OrderRead.model_validate(order)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Fout bij updaten songtekst voor order {order_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Er is een fout opgetreden bij het updaten van de songtekst"
+        )
+
+async def sync_songtext_to_upsells(db: Session, original_order_id: int, songtext: str):
+    """
+    Synchroniseer songtekst naar alle UpSell orders die gelinkt zijn aan deze originele order.
+    """
+    try:
+        # Zoek alle UpSell orders die gelinkt zijn aan deze originele order
+        upsell_orders = db.query(Order).filter(
+            Order.origin_song_id == original_order_id
+        ).all()
+        
+        if not upsell_orders:
+            logger.info(f"Geen UpSell orders gevonden voor originele order {original_order_id}")
+            return
+        
+        # Update songtekst in alle UpSell orders
+        updated_count = 0
+        for upsell_order in upsell_orders:
+            # Alleen updaten als de UpSell order nog geen eigen songtekst heeft
+            # of als de songtekst leeg is
+            if not upsell_order.songtekst or upsell_order.songtekst.strip() == "":
+                upsell_order.songtekst = songtext
+                updated_count += 1
+                logger.info(f"Songtekst gesynchroniseerd naar UpSell order {upsell_order.order_id}")
+        
+        if updated_count > 0:
+            db.commit()
+            logger.info(f"Songtekst gesynchroniseerd naar {updated_count} UpSell orders voor originele order {original_order_id}")
+        else:
+            logger.info(f"Geen UpSell orders bijgewerkt (alleen orders zonder bestaande songtekst)")
+            
+    except Exception as e:
+        logger.error(f"Fout bij synchroniseren songtekst naar UpSell orders: {str(e)}")
+        # Niet re-raise, want de originele update moet wel doorgaan

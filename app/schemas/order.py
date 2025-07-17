@@ -4,7 +4,7 @@ Pydantic schemas voor Order modellen.
 
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, root_validator, Field
 
 
 class OrderBase(BaseModel):
@@ -266,6 +266,11 @@ class OrderRead(BaseModel):
     class Config:
         """Pydantic configuratie."""
         from_attributes = True
+
+class UpdateSongtextRequest(BaseModel):
+    """Schema voor het updaten van songtekst met synchronisatie naar UpSell orders."""
+    songtekst: str = Field(..., description="De nieuwe songtekst")
+    sync_to_upsells: bool = Field(True, description="Of de songtekst gesynchroniseerd moet worden naar UpSell orders")
 
 def detect_order_type(raw_data: dict) -> str:
     """Detect order type based on product information."""

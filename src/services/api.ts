@@ -74,20 +74,18 @@ export const ordersApi = {
   },
 
   /**
-   * POST /orders/:id/update-songtext - Update songtekst voor een order
-   * @param orderId The ID of the order
-   * @param songtext The new songtext
-   * @returns Promise resolving to updated order
+   * Update songtekst voor een order met automatische synchronisatie naar UpSell orders
    */
   updateSongtext: async (orderId: number, songtext: string): Promise<Order> => {
     try {
-      const response = await api.post<Order>(`/orders/${orderId}/update-songtext`, {
-        songtext: songtext
+      const response = await api.put<Order>(`/orders/${orderId}/songtext`, {
+        songtekst: songtext,
+        sync_to_upsells: true
       });
       return response.data;
     } catch (error) {
       console.error('Error updating songtext:', error);
-      throw error;
+      throw new Error(error instanceof Error ? error.message : 'Failed to update songtext');
     }
   },
 

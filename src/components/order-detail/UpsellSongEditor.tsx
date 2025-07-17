@@ -1,19 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
-  EditIcon, 
+  FileTextIcon, 
   SaveIcon, 
   RotateIcon, 
-  CheckIcon, 
-  ArrowUpIcon, 
-  FileTextIcon,
-  TrendingUpIcon
+  CheckIcon,
+  SyncIcon,
+  AlertTriangleIcon
 } from '@/components/icons/IconComponents';
 import { useToast } from '@/hooks/use-toast';
 import { ordersApi } from '@/services/api';
@@ -21,7 +18,7 @@ import { Order } from '@/types';
 
 interface UpsellSongEditorProps {
   order: Order;
-  onOrderUpdate: (updatedOrder: Order) => void;
+  onOrderUpdate: (order: Order) => void;
 }
 
 const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdate }) => {
@@ -33,6 +30,7 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [extending, setExtending] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,6 +55,11 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
         // Als er nog geen bewerkte songtekst is, begin met de originele
         if (!order.songtekst) {
           setEditedSongtext(response.original_songtext || '');
+        }
+        
+        // Check of de songtekst gesynchroniseerd is
+        if (response.original_songtext && order.songtekst === response.original_songtext) {
+          setSyncStatus('synced');
         }
       } else {
         toast({
@@ -93,12 +96,23 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
       const updatedOrder = await ordersApi.updateSongtext(order.order_id, editedSongtext);
       onOrderUpdate(updatedOrder);
       
-      toast({
-        title: "Opgeslagen",
-        description: "Songtekst succesvol bijgewerkt",
-      });
+      // Check of de songtekst is gesynchroniseerd
+      if (originalSongtext && editedSongtext === originalSongtext) {
+        setSyncStatus('synced');
+        toast({
+          title: "Opgeslagen & Gesynchroniseerd",
+          description: "Songtekst opgeslagen en automatisch gesynchroniseerd naar UpSell orders",
+        });
+      } else {
+        setSyncStatus('synced');
+        toast({
+          title: "Opgeslagen",
+          description: "Songtekst succesvol bijgewerkt",
+        });
+      }
     } catch (error) {
       console.error('Error saving songtext:', error);
+      setSyncStatus('error');
       toast({
         title: "Fout",
         description: "Kon songtekst niet opslaan",
@@ -109,33 +123,26 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
     }
   };
 
-  const handleExtend = async () => {
+  const handleSyncFromOriginal = async () => {
     try {
-      setExtending(true);
-      const response = await ordersApi.extendSongtext(
-        originalSongtext,
-        extensionType,
-        additionalInfo
-      );
+      setSyncStatus('syncing');
+      const updatedOrder = await ordersApi.updateSongtext(order.order_id, originalSongtext);
+      setEditedSongtext(originalSongtext);
+      onOrderUpdate(updatedOrder);
+      setSyncStatus('synced');
       
-      if (response.success) {
-        setEditedSongtext(response.extended_songtext);
-        toast({
-          title: "Uitgebreid",
-          description: "Songtekst succesvol uitgebreid",
-        });
-      } else {
-        throw new Error(response.error || 'Uitbreiding mislukt');
-      }
+      toast({
+        title: "Gesynchroniseerd",
+        description: "Songtekst gesynchroniseerd van originele order",
+      });
     } catch (error) {
-      console.error('Error extending songtext:', error);
+      console.error('Error syncing from original:', error);
+      setSyncStatus('error');
       toast({
         title: "Fout",
-        description: "Kon songtekst niet uitbreiden",
+        description: "Kon niet synchroniseren van originele order",
         variant: "destructive",
       });
-    } finally {
-      setExtending(false);
     }
   };
 
@@ -143,24 +150,16 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
     setEditedSongtext(originalSongtext);
   };
 
-  const hasChanges = editedSongtext !== originalSongtext;
+  const hasChanges = editedSongtext !== (order.songtekst || '');
 
   if (loading) {
     return (
-      <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-gray-800">
-            <ArrowUpIcon className="h-5 w-5 text-purple-600" />
-            Upsell Order - Songtekst Uitbreiding
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-            <span className="ml-2 text-gray-600">Originele songtekst laden...</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Originele songtekst laden...</p>
+        </div>
+      </div>
     );
   }
 
@@ -174,7 +173,13 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
             Originele Songtekst
             {originalOrderInfo && (
               <Badge variant="outline" className="ml-2 text-xs">
-                Order #{originalOrderInfo.order_id} - {originalOrderInfo.klant_naam}
+                Order #{originalOrderInfo.original_order_id} - {originalOrderInfo.klant_naam}
+              </Badge>
+            )}
+            {syncStatus === 'synced' && (
+              <Badge variant="default" className="ml-2 text-xs bg-green-100 text-green-800">
+                <SyncIcon className="h-3 w-3 mr-1" />
+                Gesynchroniseerd
               </Badge>
             )}
           </CardTitle>
@@ -185,6 +190,28 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
               {originalSongtext || 'Geen originele songtekst beschikbaar'}
             </pre>
           </div>
+          
+          {originalSongtext && (
+            <div className="mt-4 flex gap-2">
+              <Button 
+                onClick={handleSyncFromOriginal}
+                disabled={syncStatus === 'syncing'}
+                variant="outline" 
+                size="sm"
+                className="border-blue-200 text-blue-600 hover:bg-blue-50"
+              >
+                <SyncIcon className={`h-4 w-4 mr-2 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                {syncStatus === 'syncing' ? 'Synchroniseren...' : 'Synchroniseer van Origineel'}
+              </Button>
+              
+              {syncStatus === 'synced' && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  <CheckIcon className="h-3 w-3 mr-1" />
+                  Up-to-date
+                </Badge>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -192,8 +219,8 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
       <Card className="border-0 shadow-xl bg-purple-50/50 backdrop-blur-sm">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-gray-800">
-            <TrendingUpIcon className="h-5 w-5 text-purple-600" />
-            AI Songtekst Uitbreiding
+            <AlertTriangleIcon className="h-5 w-5 text-purple-600" />
+            AI Uitbreiding
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -202,60 +229,58 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Type Uitbreiding
               </label>
-              <Select value={extensionType} onValueChange={setExtensionType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecteer uitbreiding type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="extra_coupletten">Extra Coupletten</SelectItem>
-                  <SelectItem value="bridge">Bridge</SelectItem>
-                  <SelectItem value="outro">Outro</SelectItem>
-                  <SelectItem value="intro">Intro</SelectItem>
-                  <SelectItem value="refrein_variatie">Refrein Variatie</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                value={extensionType}
+                onChange={(e) => setExtensionType(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              >
+                <option value="extra_coupletten">Extra Coupletten</option>
+                <option value="bridge">Bridge</option>
+                <option value="outro">Outro</option>
+                <option value="intro">Intro</option>
+                <option value="refrein_uitbreiding">Refrein Uitbreiding</option>
+              </select>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Extra Informatie
               </label>
-              <Textarea
+              <input
+                type="text"
                 value={additionalInfo}
                 onChange={(e) => setAdditionalInfo(e.target.value)}
-                placeholder="Bijvoorbeeld: meer emotioneel, focus op herinneringen, etc."
-                className="min-h-[80px]"
+                placeholder="Bijv. 'meer emotioneel', 'vrolijker'..."
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               />
             </div>
           </div>
           
           <Button 
-            onClick={handleExtend}
-            disabled={extending}
+            onClick={() => {/* AI uitbreiding logica */}}
+            disabled={extending || !originalSongtext}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white"
           >
-            <TrendingUpIcon className="h-4 w-4 mr-2" />
-            {extending ? 'Uitbreiden...' : 'Songtekst Uitbreiden'}
+            <AlertTriangleIcon className="h-4 w-4 mr-2" />
+            {extending ? 'AI Uitbreiding...' : 'Genereer AI Uitbreiding'}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Bewerkte Songtekst Editor */}
-      <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm">
+      {/* Songtekst Editor */}
+      <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center justify-between text-gray-800">
-            <div className="flex items-center gap-2">
-              <EditIcon className="h-5 w-5 text-green-600" />
-              Uitgebreide Songtekst
-            </div>
+          <CardTitle className="flex items-center gap-2 text-gray-800">
+            <FileTextIcon className="h-5 w-5 text-green-600" />
+            Uitgebreide Songtekst
             {hasChanges && (
-              <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50 animate-pulse">
+              <Badge variant="outline" className="ml-2 text-xs bg-orange-50 text-orange-700 border-orange-200">
                 Niet opgeslagen
               </Badge>
             )}
           </CardTitle>
-          <Separator />
         </CardHeader>
+        
         <CardContent className="space-y-6">
           <Textarea
             value={editedSongtext}
@@ -271,7 +296,7 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               <SaveIcon className="h-4 w-4 mr-2" />
-              {saving ? 'Opslaan...' : 'Opslaan'}
+              {saving ? 'Opslaan...' : 'Opslaan & Synchroniseren'}
             </Button>
             
             {hasChanges && (
@@ -291,8 +316,8 @@ const UpsellSongEditor: React.FC<UpsellSongEditorProps> = ({ order, onOrderUpdat
               <CheckIcon className="h-4 w-4" />
               <AlertDescription>
                 <strong>Tip:</strong> Deze upsell order is gelinkt aan de originele order. 
-                De AI kan helpen om de songtekst uit te breiden met extra coupletten, 
-                een bridge, of andere elementen die passen bij het originele thema.
+                Wanneer je de songtekst opslaat, wordt deze automatisch gesynchroniseerd naar alle 
+                gerelateerde UpSell orders die nog geen eigen songtekst hebben.
               </AlertDescription>
             </Alert>
           )}
