@@ -524,7 +524,7 @@ def generate_professional_prompt(order_description: str) -> str:
     """
     return PROFESSIONAL_DUTCH_SONGWRITER_TEMPLATE.format(beschrijving=order_description)
 
-def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool = False, thema_id: int = None, use_professional: bool = False) -> str:
+def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool = False, thema_id: int = None, use_professional: bool = True) -> str:
     """
     Genereert een AI-prompt op basis van de songdata en thema database.
     
@@ -533,7 +533,7 @@ def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool
         db: Database session (optioneel)
         use_suno: Of Suno.ai geoptimaliseerde prompt moet worden gebruikt
         thema_id: Optionele thema_id voor directe database lookup
-        use_professional: Of de uitgebreide professionele prompt moet worden gebruikt
+        use_professional: Of de uitgebreide professionele prompt moet worden gebruikt (default: True)
         
     Returns:
         Een gegenereerde prompt string
@@ -546,22 +546,12 @@ def generate_enhanced_prompt(song_data: dict, db: Session = None, use_suno: bool
     else:
         thema_data = thema_service.generate_thema_data(thema_name=song_data.get("stijl"))
     
-    # Als professionele prompt gevraagd wordt, gebruik thema-specifieke prompt
-    if use_professional:
-        if thema_data and thema_data.get('professional_prompt'):
-            return thema_data['professional_prompt'].format(beschrijving=song_data.get("beschrijving", ""))
-        else:
-            # Fallback naar algemene professionele prompt
-            return generate_professional_prompt(song_data.get("beschrijving", ""))
-    
-    # Zorg ervoor dat extra_wens een waarde heeft
-    if "extra_wens" not in song_data or not song_data["extra_wens"]:
-        song_data["extra_wens"] = "Geen extra wensen opgegeven"
-    
-    if use_suno and thema_data:
-        return _generate_suno_prompt(song_data, thema_data)
+    # Gebruik altijd professionele prompt (basis prompt is weggehaald)
+    if thema_data and thema_data.get('professional_prompt'):
+        return thema_data['professional_prompt'].format(beschrijving=song_data.get("beschrijving", ""))
     else:
-        return _generate_standard_prompt(song_data, thema_data)
+        # Fallback naar algemene professionele prompt
+        return generate_professional_prompt(song_data.get("beschrijving", ""))
 
 def _generate_suno_prompt(song_data: dict, thema_data: dict) -> str:
     """Genereer Suno.ai geoptimaliseerde prompt"""
@@ -626,5 +616,6 @@ THEMA-SPECIFIEKE ELEMENTEN:
 def generate_prompt(song_data: dict, db: Session = None) -> str:
     """
     Backward compatibility function - werkt met bestaande code
+    Nu gebruikt deze functie standaard de professionele prompt
     """
-    return generate_enhanced_prompt(song_data, db, use_suno=False)
+    return generate_enhanced_prompt(song_data, db, use_suno=False, use_professional=True)

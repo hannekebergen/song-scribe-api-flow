@@ -89,8 +89,6 @@ class GenerateFromOrderRequest(BaseModel):
     max_tokens: int = Field(2000, description="Maximum aantal tokens", ge=100, le=4000)
     temperature: float = Field(0.7, description="Creativiteit (0.0-1.0)", ge=0.0, le=1.0)
     use_suno: bool = Field(False, description="Gebruik Suno.ai geoptimaliseerde prompt formatting")
-    use_professional_prompt: bool = Field(False, description="Forceer het gebruik van professionele prompt")
-    auto_professional: bool = Field(True, description="Automatisch professionele prompt voor STANDARD orders")
 
 class AIResponse(BaseModel):
     """Base response model voor AI operaties"""
@@ -180,49 +178,7 @@ async def generate_songtext_endpoint(
             detail=ErrorResponse(error=str(e)).dict()
         )
 
-@router.post("/generate-professional-songtext", response_model=SongtextResponse)
-async def generate_professional_songtext_endpoint(
-    request: ProfessionalSongtextRequest,
-    api_key: str = Depends(get_api_key),
-    db: Session = Depends(get_db)
-):
-    """
-    Genereert een songtekst met de uitgebreide professionele prompt-template.
-    Deze endpoint gebruikt de geavanceerde prompt met alle voorbeelden en stijlrichtlijnen.
-    """
-    try:
-        # Voor professionele prompts gebruiken we alleen de beschrijving
-        professional_prompt = generate_professional_prompt(request.beschrijving)
-        
-        # Genereer songtekst met de professionele prompt
-        result = await generate_songtext_from_prompt(
-            prompt=professional_prompt,
-            provider=None, # Use default provider (Gemini)
-            max_tokens=request.max_tokens,
-            temperature=request.temperature
-        )
-        
-        if result["success"]:
-            return SongtextResponse(
-                success=True,
-                songtext=result["songtext"],
-                prompt_length=len(professional_prompt),
-                provider=result["provider"],
-                generated_at=result["generated_at"],
-                tokens_used=result.get("tokens_used")
-            )
-        else:
-            return SongtextResponse(
-                success=False,
-                error=result.get("error", "Onbekende fout bij het genereren van professionele songtekst")
-            )
-            
-    except Exception as e:
-        logger.error(f"Error in generate_professional_songtext_endpoint: {str(e)}")
-        return SongtextResponse(
-            success=False,
-            error=f"Fout bij het genereren van professionele songtekst: {str(e)}"
-        )
+
 
 @router.post("/generate-from-order", response_model=SongtextResponse)
 async def generate_from_order_endpoint(
@@ -232,7 +188,7 @@ async def generate_from_order_endpoint(
 ):
     """
     Genereert een songtekst op basis van een order ID.
-    Kan nu ook de professionele prompt gebruiken voor STANDARD 72u orders.
+    Gebruikt altijd de professionele prompt voor optimale resultaten.
     """
     try:
         # Haal order data op
@@ -243,72 +199,44 @@ async def generate_from_order_endpoint(
                 error=f"Order {request.order_id} niet gevonden"
             )
         
-        # Bepaal of we de professionele prompt moeten gebruiken
-        use_professional = (
-            getattr(request, 'use_professional_prompt', False) or
-            (order.typeOrder == "STANDARD" and getattr(request, 'auto_professional', True))
+        # Gebruik altijd professionele prompt met thema-specifieke elementen
+        song_data = {
+            "ontvanger": order.voornaam or "onbekend",
+            "van": order.klant_naam or "onbekend",
+            "beschrijving": order.beschrijving or "",
+            "stijl": order.thema or "algemeen",
+            "extra_wens": order.persoonlijk_verhaal or ""
+        }
+        
+        prompt = generate_enhanced_prompt(
+            song_data, 
+            db=db, 
+            use_suno=getattr(request, 'use_suno', False),
+            thema_id=order.thema_id
         )
         
-        if use_professional:
-            # Gebruik professionele prompt met alleen de beschrijving
-            professional_prompt = generate_professional_prompt(order.beschrijving or "")
-            result = await generate_songtext_from_prompt(
-                prompt=professional_prompt,
-                provider=None, # Use default provider (Gemini)
-                max_tokens=request.max_tokens,
-                temperature=request.temperature
+        result = await generate_songtext_from_prompt(
+            prompt=prompt,
+            provider=None, # Use default provider (Gemini)
+            max_tokens=request.max_tokens,
+            temperature=request.temperature
+        )
+        
+        if result["success"]:
+            return SongtextResponse(
+                success=True,
+                songtext=result["songtext"],
+                prompt_length=len(prompt),
+                provider=result["provider"],
+                generated_at=result["generated_at"],
+                tokens_used=result.get("tokens_used"),
+                order_id=request.order_id
             )
-            
-            if result["success"]:
-                return SongtextResponse(
-                    success=True,
-                    songtext=result["songtext"],
-                    prompt_length=len(professional_prompt),
-                    provider=result["provider"],
-                    generated_at=result["generated_at"],
-                    tokens_used=result.get("tokens_used"),
-                    order_id=request.order_id
-                )
         else:
-            # Gebruik bestaande enhanced prompt logica
-            song_data = {
-                "ontvanger": order.voornaam or "onbekend",
-                "van": order.klant_naam or "onbekend",
-                "beschrijving": order.beschrijving or "",
-                "stijl": order.thema or "algemeen",
-                "extra_wens": order.persoonlijk_verhaal or ""
-            }
-            
-            prompt = generate_enhanced_prompt(
-                song_data, 
-                db=db, 
-                use_suno=getattr(request, 'use_suno', False),
-                thema_id=order.thema_id
+            return SongtextResponse(
+                success=False,
+                error=result.get("error", "Onbekende fout bij het genereren van songtekst")
             )
-            
-            result = await generate_songtext_from_prompt(
-                prompt=prompt,
-                provider=None, # Use default provider (Gemini)
-                max_tokens=request.max_tokens,
-                temperature=request.temperature
-            )
-            
-            if result["success"]:
-                return SongtextResponse(
-                    success=True,
-                    songtext=result["songtext"],
-                    prompt_length=len(prompt),
-                    provider=result["provider"],
-                    generated_at=result["generated_at"],
-                    tokens_used=result.get("tokens_used"),
-                    order_id=request.order_id
-                )
-        
-        # Als we hier komen, is er een fout opgetreden
-        return SongtextResponse(
-            success=False,
-            error=result.get("error", "Onbekende fout bij het genereren van songtekst")
-        )
         
     except Exception as e:
         logger.error(f"Error in generate_from_order_endpoint: {str(e)}")
@@ -436,8 +364,7 @@ async def generate_professional_songtext_endpoint(
             song_data=song_data,
             db=db,
             use_suno=False,
-            thema_id=request.thema_id,
-            use_professional=True
+            thema_id=request.thema_id
         )
         
         # Call AI service

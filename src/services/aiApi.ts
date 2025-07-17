@@ -14,6 +14,7 @@ export interface GenerateSongtextRequest {
 
 export interface ProfessionalSongtextRequest {
   beschrijving: string;
+  thema_id?: number;
   max_tokens?: number;
   temperature?: number;
 }
@@ -324,13 +325,16 @@ export const generateSongtextFromDescription = async (
 
 export const generateProfessionalSongtextFromDescription = async (
   beschrijving: string,
-  options?: { max_tokens?: number; temperature?: number }
+  options?: { max_tokens?: number; temperature?: number; thema_id?: number }
 ): Promise<SongtextResponse> => {
-  return aiApi.generateProfessionalSongtext({
+  const request: ProfessionalSongtextRequest = {
     beschrijving,
     max_tokens: options?.max_tokens,
-    temperature: options?.temperature
-  });
+    temperature: options?.temperature,
+    thema_id: options?.thema_id
+  };
+  
+  return aiApi.generateProfessionalSongtext(request);
 };
 
 export default aiApi; 
