@@ -642,11 +642,9 @@ async def get_original_songtext(
                 detail=f"Originele order {upsell_order.origin_song_id} niet gevonden"
             )
         
-        # Haal de songtekst op (kan in songtekst veld of raw_data zitten)
+        # Haal de songtekst op uit raw_data
         original_songtext = ""
-        if hasattr(original_order, 'songtekst') and original_order.songtekst:
-            original_songtext = original_order.songtekst
-        elif original_order.raw_data and original_order.raw_data.get('songtekst'):
+        if original_order.raw_data and original_order.raw_data.get('songtekst'):
             original_songtext = original_order.raw_data['songtekst']
         
         return JSONResponse(
