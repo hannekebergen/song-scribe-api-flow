@@ -794,10 +794,22 @@ async def suno_health_check(api_key: str = Depends(get_api_key)):
     """
     Health check voor Suno API integratie
     """
-    from app.services.suno_client import suno_client
-    
-    return {
-        "status": "healthy" if suno_client.api_key else "no_api_key",
-        "has_suno_key": bool(suno_client.api_key),
-        "base_url": suno_client.base_url
-    }
+    try:
+        from app.services.suno_client import SunoClient
+        
+        client = SunoClient()
+        
+        return {
+            "status": "healthy" if client.api_key else "no_api_key",
+            "has_suno_key": bool(client.api_key),
+            "base_url": client.base_url,
+            "api_key_length": len(client.api_key) if client.api_key else 0
+        }
+    except Exception as e:
+        logger.error(f"Error in suno health check: {str(e)}")
+        return {
+            "status": "error",
+            "has_suno_key": False,
+            "base_url": "unknown",
+            "error": str(e)
+        }

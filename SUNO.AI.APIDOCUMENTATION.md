@@ -194,6 +194,77 @@ Response message
 
 Example: All generated successfully
 
+AUTHORIZATION: HTTP
+PYTHON CODE, HTTP.CLIENT
+import http.client
+import json
+
+conn = http.client.HTTPSConnection("api.sunoapi.org")
+payload = json.dumps({
+  "prompt": "A calm and relaxing piano track with soft melodies",
+  "style": "Classical",
+  "title": "Peaceful Piano Meditation",
+  "customMode": True,
+  "instrumental": True,
+  "model": "V3_5",
+  "negativeTags": "Heavy Metal, Upbeat Drums",
+  "callBackUrl": "https://api.example.com/callback"
+})
+headers = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'Authorization': 'Bearer <token>'
+}
+conn.request("POST", "/api/v1/generate", payload, headers)
+res = conn.getresponse()
+data = res.read()
+print(data.decode("utf-8"))
+
+PYTHON CODE, REQUESTS
+import requests
+import json
+
+url = "https://api.sunoapi.org/api/v1/generate"
+
+payload = json.dumps({
+  "prompt": "A calm and relaxing piano track with soft melodies",
+  "style": "Classical",
+  "title": "Peaceful Piano Meditation",
+  "customMode": True,
+  "instrumental": True,
+  "model": "V3_5",
+  "negativeTags": "Heavy Metal, Upbeat Drums",
+  "callBackUrl": "https://api.example.com/callback"
+})
+headers = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'Authorization': 'Bearer <token>'
+}
+
+response = requests.request("POST", url, headers=headers, data=payload)
+
+print(response.text)
+
+REQUESTS
+Base URL
+https://api.sunoapi.org
+Auth
+Bearer Token
+Bearer Token
+Body
+ required
+ {
+  "prompt": "A calm and relaxing piano track with soft melodies",
+  "style": "Classical",
+  "title": "Peaceful Piano Meditation",
+  "customMode": true,
+  "instrumental": true,
+  "model": "V3_5",
+  "negativeTags": "Heavy Metal, Upbeat Drums",
+  "callBackUrl": "https://api.example.com/callback"
+}
+
 EXTEND MUSIC:
 Extend or modify existing music tracks.
 
@@ -354,6 +425,80 @@ Example: All generated successfully
 data
 object
 
+AUTHORIZATION: HTTP
+PYTHON CODE, HTTP.CLIENT
+import http.client
+import json
+
+conn = http.client.HTTPSConnection("api.sunoapi.org")
+payload = json.dumps({
+  "defaultParamFlag": True,
+  "audioId": "5c79****be8e",
+  "prompt": "Extend the music with more relaxing notes",
+  "style": "Classical",
+  "title": "Peaceful Piano Extended",
+  "continueAt": 60,
+  "model": "V3_5",
+  "negativeTags": "Relaxing Piano",
+  "callBackUrl": "https://api.example.com/callback"
+})
+headers = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'Authorization': 'Bearer <token>'
+}
+conn.request("POST", "/api/v1/generate/extend", payload, headers)
+res = conn.getresponse()
+data = res.read()
+print(data.decode("utf-8"))
+
+PYTHON CODE, REQUESTS
+import requests
+import json
+
+url = "https://api.sunoapi.org/api/v1/generate/extend"
+
+payload = json.dumps({
+  "defaultParamFlag": True,
+  "audioId": "5c79****be8e",
+  "prompt": "Extend the music with more relaxing notes",
+  "style": "Classical",
+  "title": "Peaceful Piano Extended",
+  "continueAt": 60,
+  "model": "V3_5",
+  "negativeTags": "Relaxing Piano",
+  "callBackUrl": "https://api.example.com/callback"
+})
+headers = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'Authorization': 'Bearer <token>'
+}
+
+response = requests.request("POST", url, headers=headers, data=payload)
+
+print(response.text)
+
+REQUESTS
+Base URL
+https://api.sunoapi.org
+Auth
+Bearer Token
+Bearer Token
+Body
+ required
+{
+  "defaultParamFlag": true,
+  "audioId": "5c79****be8e",
+  "prompt": "Extend the music with more relaxing notes",
+  "style": "Classical",
+  "title": "Peaceful Piano Extended",
+  "continueAt": 60,
+  "model": "V3_5",
+  "negativeTags": "Relaxing Piano",
+  "callBackUrl": "https://api.example.com/callback"
+}
+
 GET MUSIC GENERATION DETAILS:
 Get Music Generation Details
 GET
@@ -410,3 +555,42 @@ string
 Error message when code != 200
 
 Example: success
+
+AUTHORIZATION: HTTP
+PYTHON CODE, HTTP.CLIENT
+import http.client
+
+conn = http.client.HTTPSConnection("api.sunoapi.org")
+payload = ''
+headers = {
+  'Accept': 'application/json',
+  'Authorization': 'Bearer <token>'
+}
+conn.request("GET", "/api/v1/generate/record-info", payload, headers)
+res = conn.getresponse()
+data = res.read()
+print(data.decode("utf-8"))
+
+PYTHON CODE, REQUESTS
+import requests
+
+url = "https://api.sunoapi.org/api/v1/generate/record-info"
+
+payload = {}
+headers = {
+  'Accept': 'application/json',
+  'Authorization': 'Bearer <token>'
+}
+
+response = requests.request("GET", url, headers=headers, data=payload)
+
+print(response.text)
+
+Base URL
+https://api.sunoapi.org
+Auth
+Bearer Token
+Bearer Token
+Parameters
+taskId — queryrequired
+The task ID returned from the Generate Music or Extend Music endpoints. Used to identify the specific generation task to query.
