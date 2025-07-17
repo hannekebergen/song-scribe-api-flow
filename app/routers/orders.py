@@ -697,15 +697,10 @@ async def update_order_songtext(
         if not order:
             raise HTTPException(status_code=404, detail="Order niet gevonden")
         
-        # Update de songtekst
-        # Eerst proberen als direct attribuut
-        if hasattr(order, 'songtekst'):
-            order.songtekst = request.songtekst
-        else:
-            # Als fallback, sla op in raw_data
-            if not order.raw_data:
-                order.raw_data = {}
-            order.raw_data['songtekst'] = request.songtekst
+        # Update de songtekst - sla op in raw_data
+        if not order.raw_data:
+            order.raw_data = {}
+        order.raw_data['songtekst'] = request.songtekst
         
         db.commit()
         
@@ -739,8 +734,10 @@ async def update_songtext(
         if not order:
             raise HTTPException(status_code=404, detail="Order niet gevonden")
         
-        # Update de songtekst
-        order.songtekst = songtext_update.songtekst
+        # Update de songtekst - sla op in raw_data
+        if not order.raw_data:
+            order.raw_data = {}
+        order.raw_data['songtekst'] = songtext_update.songtekst
         
         # Commit de wijziging
         db.commit()
@@ -779,8 +776,14 @@ async def sync_songtext_to_upsells(db: Session, original_order_id: int, songtext
         for upsell_order in upsell_orders:
             # Alleen updaten als de UpSell order nog geen eigen songtekst heeft
             # of als de songtekst leeg is
-            if not upsell_order.songtekst or upsell_order.songtekst.strip() == "":
-                upsell_order.songtekst = songtext
+            current_songtext = ""
+            if upsell_order.raw_data and upsell_order.raw_data.get('songtekst'):
+                current_songtext = upsell_order.raw_data['songtekst']
+            
+            if not current_songtext or current_songtext.strip() == "":
+                if not upsell_order.raw_data:
+                    upsell_order.raw_data = {}
+                upsell_order.raw_data['songtekst'] = songtext
                 updated_count += 1
                 logger.info(f"Songtekst gesynchroniseerd naar UpSell order {upsell_order.order_id}")
         
