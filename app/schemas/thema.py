@@ -11,6 +11,7 @@ class ThemaBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=50, description="Unieke thema naam (slug)")
     display_name: str = Field(..., min_length=1, max_length=100, description="Weergave naam")
     description: Optional[str] = Field(None, description="Beschrijving van het thema")
+    professional_prompt: Optional[str] = Field(None, description="Professionele prompt voor dit thema")
     is_active: bool = Field(True, description="Of het thema actief is")
 
 class ThemaElementBase(BaseModel):
@@ -33,6 +34,7 @@ class ThemaUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=50)
     display_name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
+    professional_prompt: Optional[str] = None
     is_active: Optional[bool] = None
 
 class ThemaElementCreate(ThemaElementBase):
