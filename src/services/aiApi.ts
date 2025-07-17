@@ -134,8 +134,6 @@ export interface ProvidersResponse {
 export interface HealthResponse {
   status: string;
   default_provider: string;
-  has_openai_key: boolean;
-  has_claude_key: boolean;
   has_gemini_key: boolean;
 }
 

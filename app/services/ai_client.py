@@ -57,31 +57,16 @@ class AIClient:
         logger.info(f"AI Client initialized with provider: {self.default_provider}")
     
     def _determine_default_provider(self) -> AIProvider:
-        """Bepaal welke AI provider te gebruiken op basis van beschikbare API keys"""
+        """Bepaal welke AI provider te gebruiken - alleen Gemini ondersteund"""
         if self.gemini_api_key:
             return AIProvider.GEMINI
-        elif self.openai_api_key:
-            return AIProvider.OPENAI
-        elif self.claude_api_key:
-            return AIProvider.CLAUDE
         else:
-            logger.warning("Geen AI API keys gevonden! Gebruik dummy mode.")
+            logger.warning("Geen Gemini API key gevonden! Gebruik dummy mode.")
             return AIProvider.GEMINI  # Fallback naar Gemini
     
     def _get_headers(self, provider: AIProvider) -> Dict[str, str]:
-        """Get headers voor specifieke AI provider"""
-        if provider == AIProvider.OPENAI:
-            return {
-                "Authorization": f"Bearer {self.openai_api_key}",
-                "Content-Type": "application/json"
-            }
-        elif provider == AIProvider.CLAUDE:
-            return {
-                "x-api-key": self.claude_api_key,
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json"
-            }
-        elif provider == AIProvider.GEMINI:
+        """Get headers voor specifieke AI provider - alleen Gemini ondersteund"""
+        if provider == AIProvider.GEMINI:
             return {
                 "Content-Type": "application/json"
             }
@@ -175,18 +160,12 @@ class AIClient:
         
         try:
             async with aiohttp.ClientSession() as session:
-                # Build payload gebaseerd op provider
-                if provider == AIProvider.OPENAI:
-                    payload = self._build_openai_payload(prompt, max_tokens, temperature)
-                    url = self.endpoints[provider]
-                elif provider == AIProvider.CLAUDE:
-                    payload = self._build_claude_payload(prompt, max_tokens, temperature)
-                    url = self.endpoints[provider]
-                elif provider == AIProvider.GEMINI:
+                # Build payload gebaseerd op provider - alleen Gemini ondersteund
+                if provider == AIProvider.GEMINI:
                     payload = self._build_gemini_payload(prompt, temperature)
                     url = f"{self.endpoints[provider]}?key={self.gemini_api_key}"
                 else:
-                    raise ValueError(f"Unsupported provider: {provider}")
+                    raise ValueError(f"Unsupported provider: {provider}. Alleen Gemini wordt ondersteund.")
                 
                 headers = self._get_headers(provider)
                 
@@ -229,23 +208,15 @@ class AIClient:
             }
     
     def _has_api_key(self, provider: AIProvider) -> bool:
-        """Check of we een API key hebben voor de gegeven provider"""
-        if provider == AIProvider.OPENAI:
-            return bool(self.openai_api_key)
-        elif provider == AIProvider.CLAUDE:
-            return bool(self.claude_api_key)
-        elif provider == AIProvider.GEMINI:
+        """Check of we een API key hebben voor de gegeven provider - alleen Gemini ondersteund"""
+        if provider == AIProvider.GEMINI:
             return bool(self.gemini_api_key)
         return False
     
     def _extract_songtext_from_response(self, response: Dict[str, Any], provider: AIProvider) -> str:
-        """Extract de songtekst uit de API response"""
+        """Extract de songtekst uit de API response - alleen Gemini ondersteund"""
         try:
-            if provider == AIProvider.OPENAI:
-                return response["choices"][0]["message"]["content"].strip()
-            elif provider == AIProvider.CLAUDE:
-                return response["content"][0]["text"].strip()
-            elif provider == AIProvider.GEMINI:
+            if provider == AIProvider.GEMINI:
                 # Probeer verschillende mogelijke structures voor Gemini 2.0+
                 if "candidates" in response and response["candidates"]:
                     candidate = response["candidates"][0]

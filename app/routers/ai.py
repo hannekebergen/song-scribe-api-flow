@@ -121,17 +121,16 @@ class ErrorResponse(BaseModel):
     provider: Optional[str] = Field(None, description="Provider waar error optrad")
 
 def _get_ai_provider(provider_str: Optional[str]) -> Optional[AIProvider]:
-    """Convert string naar AIProvider enum"""
+    """Convert string naar AIProvider enum - alleen Gemini ondersteund"""
     if not provider_str:
         return None
     
-    provider_map = {
-        "openai": AIProvider.OPENAI,
-        "claude": AIProvider.CLAUDE,
-        "gemini": AIProvider.GEMINI
-    }
+    # Alleen Gemini ondersteund
+    if provider_str.lower() == "gemini":
+        return AIProvider.GEMINI
     
-    return provider_map.get(provider_str.lower())
+    # Default naar Gemini voor alle andere waarden
+    return AIProvider.GEMINI
 
 @router.post("/generate-songtext", response_model=SongtextResponse)
 async def generate_songtext_endpoint(
@@ -414,17 +413,13 @@ async def get_available_providers(api_key: str = Depends(get_api_key)):
     
     providers = []
     
-    for provider in AIProvider:
-        has_key = ai_client._has_api_key(provider)
-        providers.append({
-            "name": provider.value,
-            "available": has_key,
-            "display_name": {
-                "openai": "OpenAI GPT",
-                "claude": "Anthropic Claude", 
-                "gemini": "Google Gemini"
-            }.get(provider.value, provider.value.title())
-        })
+    # Alleen Gemini ondersteund
+    has_key = ai_client._has_api_key(AIProvider.GEMINI)
+    providers.append({
+        "name": AIProvider.GEMINI.value,
+        "available": has_key,
+        "display_name": "Google Gemini"
+    })
     
     return {
         "providers": providers,
@@ -444,8 +439,6 @@ async def ai_health_check():
     return {
         "status": "healthy",
         "default_provider": ai_client.default_provider.value,
-        "has_openai_key": bool(ai_client.openai_api_key),
-        "has_claude_key": bool(ai_client.claude_api_key),
         "has_gemini_key": bool(ai_client.gemini_api_key)
     }
 
