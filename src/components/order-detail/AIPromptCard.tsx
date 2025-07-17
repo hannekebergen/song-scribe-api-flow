@@ -30,7 +30,7 @@ const AIPromptCard: React.FC<AIPromptCardProps> = ({ order, onCopyToSongtext }) 
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [themas, setThemas] = useState<Thema[]>([]);
-  const [selectedThemaId, setSelectedThemaId] = useState<string>('');
+  const [selectedThemaId, setSelectedThemaId] = useState<string>('none');
   const [error, setError] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'prompt' | 'songtext'>('prompt');
 
@@ -68,7 +68,7 @@ const AIPromptCard: React.FC<AIPromptCardProps> = ({ order, onCopyToSongtext }) 
 
     try {
       // Gebruik altijd professionele prompt endpoint
-      const themaId = selectedThemaId ? parseInt(selectedThemaId) : undefined;
+      const themaId = selectedThemaId && selectedThemaId !== 'none' ? parseInt(selectedThemaId) : undefined;
       
       const result = await generateProfessionalSongtextFromDescription(
         order.beschrijving,
@@ -169,7 +169,7 @@ const AIPromptCard: React.FC<AIPromptCardProps> = ({ order, onCopyToSongtext }) 
                   <SelectValue placeholder="Kies thema (optioneel)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Geen specifiek thema</SelectItem>
+                  <SelectItem value="none">Geen specifiek thema</SelectItem>
                   {themas.map((thema) => (
                     <SelectItem key={thema.id} value={thema.id.toString()}>
                       {thema.display_name}
