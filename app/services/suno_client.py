@@ -510,7 +510,8 @@ async def generate_music_from_songtext(
 ) -> Dict[str, Any]:
     """Convenience function voor async muziek generatie"""
     client = SunoClient()
-    return await client.generate_music_async(songtext, title, style, instrumental, custom_mode, model, negative_tags, callback_url)
+    # Use sync version for now to avoid async issues
+    return client.generate_music_sync(songtext, title, style, instrumental, custom_mode, model, negative_tags, callback_url)
 
 def generate_music_from_songtext_sync(
     songtext: str,
