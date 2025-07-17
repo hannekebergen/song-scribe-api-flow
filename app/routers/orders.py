@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import exc as sa_exc
 from pydantic import BaseModel, ValidationError, Field
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.session import get_db
 from app.models.order import Order
@@ -699,6 +700,7 @@ async def update_order_songtext(
         if not order.raw_data:
             order.raw_data = {}
         order.raw_data['songtekst'] = request.songtekst
+        flag_modified(order, 'raw_data')
         
         db.commit()
         
@@ -782,6 +784,7 @@ async def sync_songtext_to_upsells(db: Session, original_order_id: int, songtext
                 if not upsell_order.raw_data:
                     upsell_order.raw_data = {}
                 upsell_order.raw_data['songtekst'] = songtext
+                flag_modified(upsell_order, 'raw_data')
                 updated_count += 1
                 logger.info(f"Songtekst gesynchroniseerd naar UpSell order {upsell_order.order_id}")
         
