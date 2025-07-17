@@ -71,6 +71,13 @@ export interface GenerateMusicFromOrderRequest {
 
 export interface MusicResponse {
   success: boolean;
+  // New API returns task_id for status tracking
+  task_id?: string;
+  message?: string;
+  status?: string;
+  generated_at?: string;
+  
+  // Legacy fields for backward compatibility
   song_id?: string;
   title?: string;
   audio_url?: string;
@@ -79,7 +86,6 @@ export interface MusicResponse {
   style?: string;
   model?: string;
   created_at?: string;
-  generated_at?: string;
   error?: string;
 }
 
@@ -254,16 +260,23 @@ export const aiApi = {
   },
 
   /**
-   * Controleer status van een Suno song
+   * Controleer status van een Suno muziek generatie taak
    */
-  getSunoSongStatus: async (songId: string): Promise<any> => {
+  getSunoTaskStatus: async (taskId: string): Promise<any> => {
     try {
-      const response = await api.get(`/api/ai/suno-status/${songId}`);
+      const response = await api.get(`/api/ai/suno-status/${taskId}`);
       return response.data;
     } catch (error) {
-      console.error('Error checking Suno song status:', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to check song status');
+      console.error('Error checking Suno task status:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to check task status');
     }
+  },
+
+  /**
+   * Legacy: Controleer status van een Suno song (backward compatibility)
+   */
+  getSunoSongStatus: async (songId: string): Promise<any> => {
+    return aiApi.getSunoTaskStatus(songId);
   },
 
   /**

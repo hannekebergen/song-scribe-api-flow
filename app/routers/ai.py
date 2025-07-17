@@ -617,20 +617,17 @@ async def generate_music_endpoint(
             instrumental=instrumental,
             custom_mode=custom_mode,
             model=request.get("model", "V4_5"),
-            negative_tags=request.get("negativeTags")
+            negative_tags=request.get("negativeTags"),
+            callback_url=request.get("callBackUrl")  # Add callback URL support
         )
         
         if result["success"]:
+            # New API returns task_id instead of direct results
             return {
                 "success": True,
-                "song_id": result["song_id"],
-                "title": result["title"],
-                "audio_url": result["audio_url"],
-                "video_url": result["video_url"],
-                "image_url": result["image_url"],
-                "style": result["style"],
-                "model": result["model"],
-                "created_at": result["created_at"],
+                "task_id": result["task_id"],
+                "message": result["message"],
+                "status": result["status"],
                 "generated_at": result["generated_at"]
             }
         else:
@@ -761,31 +758,32 @@ async def generate_music_from_order_endpoint(
             detail=f"Muziekgeneratie voor order mislukt: {str(e)}"
         )
 
-@router.get("/suno-status/{song_id}")
-async def get_suno_song_status(
-    song_id: str,
+@router.get("/suno-status/{task_id}")
+async def get_suno_task_status(
+    task_id: str,
     api_key: str = Depends(get_api_key)
 ):
     """
-    Controleer status van een Suno song generatie
+    Controleer status van een Suno muziek generatie taak
     """
     try:
-        from app.services.suno_client import suno_client
+        from app.services.suno_client import SunoClient
         
-        result = await suno_client.get_song_status(song_id)
+        client = SunoClient()
+        result = await client.get_task_status(task_id)
         
-        if result["success"]:
+        if result.get("success"):
             return result
         else:
             raise HTTPException(
                 status_code=500,
-                detail=result["error"]
+                detail=result.get("error", "Unknown error")
             )
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error checking Suno song status: {str(e)}")
+        logger.error(f"Error checking Suno task status: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Status check failed: {str(e)}"

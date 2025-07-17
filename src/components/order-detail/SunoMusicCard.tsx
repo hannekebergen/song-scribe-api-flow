@@ -10,11 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { aiApi, MusicResponse } from '@/services/aiApi';
 import { Order } from '@/types';
-import { ChevronDownIcon, ArrowUpIcon, MusicIcon, DownloadIcon, XIcon } from '@/components/icons/IconComponents';
+import { ChevronDownIcon, ArrowUpIcon, MusicIcon, DownloadIcon } from '@/components/icons/IconComponents';
 
 interface SunoMusicCardProps {
   order: Order;
-  currentSongtext?: string; // Add prop for current songtext from editor
+  currentSongtext?: string;
 }
 
 const MUSIC_STYLES = [
@@ -50,12 +50,12 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSong
   const [localSongtext, setLocalSongtext] = useState('');
   
   // Custom Mode form state
-  const [customMode] = useState(true); // Altijd Custom Mode voor volledige controle
   const [style, setStyle] = useState('');
   const [instrumental, setInstrumental] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
   const [model, setModel] = useState('V4_5');
   const [negativeTags, setNegativeTags] = useState('');
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   
   const { toast } = useToast();
 
@@ -63,6 +63,15 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSong
   useEffect(() => {
     setLocalSongtext(currentSongtext || order.songtekst || '');
   }, [currentSongtext, order.songtekst]);
+
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
 
   // Auto-set default values
   useEffect(() => {
@@ -94,10 +103,59 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSong
   };
 
   const charLimits = getCharLimits();
-  const canGenerateMusic = !instrumental ? localSongtext.length > 50 : true;
   const isPromptTooLong = localSongtext.length > charLimits.prompt;
   const isStyleTooLong = style.length > charLimits.style;
   const isTitleTooLong = customTitle.length > charLimits.title;
+
+  // Poll task status function
+  const pollTaskStatus = async (taskId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const statusResult = await aiApi.getSunoTaskStatus(taskId);
+        
+        if (statusResult.success) {
+          if (statusResult.status === 'SUCCESS' && statusResult.tracks && statusResult.tracks.length > 0) {
+            // Task completed successfully
+            const track = statusResult.tracks[0];
+            setMusicResult({
+              success: true,
+              title: track.title || customTitle,
+              audio_url: track.audio_url || track.stream_url,
+              image_url: track.image_url,
+              generated_at: new Date().toISOString()
+            });
+            
+            toast({
+              title: "Muziek gegenereerd!",
+              description: `"${track.title || customTitle}" is klaar om te beluisteren.`,
+            });
+            
+            // Stop polling
+            clearInterval(interval);
+            setPollingInterval(null);
+          } else if (statusResult.status === 'FAILED' || statusResult.status === 'ERROR') {
+            // Task failed
+            toast({
+              title: "Muziekgeneratie mislukt",
+              description: "Er ging iets mis bij het genereren van de muziek.",
+              variant: "destructive"
+            });
+            
+            clearInterval(interval);
+            setPollingInterval(null);
+          }
+          // Continue polling for other statuses (PENDING, TEXT_SUCCESS, FIRST_SUCCESS)
+        } else {
+          // Error checking status
+          console.error('Error checking task status:', statusResult.error);
+        }
+      } catch (error) {
+        console.error('Error polling task status:', error);
+      }
+    }, 10000); // Check every 10 seconds
+    
+    setPollingInterval(interval);
+  };
 
   // Check if all required fields are filled
   const isFormValid = () => {
@@ -120,6 +178,7 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSong
     }
 
     setIsGenerating(true);
+    
     try {
       const requestData = {
         customMode: true,
@@ -128,17 +187,35 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSong
         style: style,
         title: customTitle,
         ...(negativeTags && { negativeTags }),
-        ...(instrumental ? {} : { prompt: localSongtext }) // Only add prompt if not instrumental
+        ...(instrumental ? {} : { prompt: localSongtext })
       };
 
       const result = await aiApi.generateMusic(requestData);
 
       if (result.success) {
-        setMusicResult(result);
-        toast({
-          title: "Muziek gegenereerd!",
-          description: `"${result.title}" is klaar om te beluisteren.`,
-        });
+        // New API returns task_id for status tracking
+        if (result.task_id) {
+          setMusicResult({
+            ...result,
+            title: customTitle || "Muziek wordt gegenereerd...",
+            audio_url: "", // Will be populated when status is checked
+          });
+          
+          toast({
+            title: "Muziek generatie gestart!",
+            description: "De muziek wordt nu gegenereerd. Dit kan enkele minuten duren.",
+          });
+          
+          // Start polling for status
+          pollTaskStatus(result.task_id);
+        } else {
+          // Legacy response with direct results
+          setMusicResult(result);
+          toast({
+            title: "Muziek gegenereerd!",
+            description: `"${result.title}" is klaar om te beluisteren.`,
+          });
+        }
       } else {
         throw new Error(result.error || 'Onbekende fout bij muziekgeneratie');
       }
@@ -155,9 +232,15 @@ export const SunoMusicCard: React.FC<SunoMusicCardProps> = ({ order, currentSong
         } else if (error.message.includes('429')) {
           errorTitle = "Te veel verzoeken";
           errorMessage = "Te veel verzoeken naar de muziekservice. Probeer het over een paar minuten opnieuw.";
+        } else if (error.message.includes('503') || error.message.includes('Service Temporarily Unavailable')) {
+          errorTitle = "SUNO Service niet beschikbaar";
+          errorMessage = "De muziekgeneratie service is tijdelijk niet beschikbaar. Probeer het over 5-10 minuten opnieuw.";
         } else if (error.message.includes('500')) {
           errorTitle = "Server probleem";
           errorMessage = "Er is een probleem met de muziekgeneratie service. Probeer het later opnieuw.";
+        } else if (error.message.includes('401')) {
+          errorTitle = "API Key probleem";
+          errorMessage = "Er is een probleem met de API configuratie. Neem contact op met support.";
         } else {
           errorMessage = error.message;
         }
