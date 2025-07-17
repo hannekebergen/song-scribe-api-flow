@@ -270,6 +270,55 @@ def run_professional_prompt_migration(conn_params):
         logger.error(f"Error running professional_prompt migration: {e}")
         return False
 
+def run_thema_rhyme_sets_migration(conn_params):
+    """Create thema_rhyme_sets table if it doesn't exist."""
+    try:
+        conn = psycopg2.connect(**conn_params)
+        cursor = conn.cursor()
+        
+        # Check if thema_rhyme_sets table exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'thema_rhyme_sets'
+            );
+        """)
+        
+        if cursor.fetchone()[0]:
+            logger.info("thema_rhyme_sets table already exists, skipping creation")
+            cursor.close()
+            conn.close()
+            return True
+        
+        logger.info("Creating thema_rhyme_sets table...")
+        
+        # Create thema_rhyme_sets table
+        cursor.execute("""
+            CREATE TABLE thema_rhyme_sets (
+                id SERIAL PRIMARY KEY,
+                thema_id INTEGER NOT NULL REFERENCES themas(id) ON DELETE CASCADE,
+                rhyme_pattern VARCHAR(10) NOT NULL,
+                rhyme_pairs JSON NOT NULL,
+                difficulty_level VARCHAR(20) DEFAULT 'medium' NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+            )
+        """)
+        
+        # Add indexes
+        cursor.execute("CREATE INDEX idx_thema_rhyme_sets_thema_id ON thema_rhyme_sets (thema_id)")
+        cursor.execute("CREATE INDEX idx_thema_rhyme_sets_rhyme_pattern ON thema_rhyme_sets (rhyme_pattern)")
+        
+        logger.info("✅ Created thema_rhyme_sets table with indexes")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error creating thema_rhyme_sets table: {e}")
+        return False
+
 def run_rhyme_pairs_fix_migration(conn_params):
     """Fix the rhyme_pairs column type from ARRAY(ARRAY(String)) to JSON."""
     try:
@@ -372,6 +421,13 @@ def run_direct_migrations():
         logger.info("Running professional_prompt migration...")
         if run_professional_prompt_migration(conn_params):
             migrations_run.append("professional_prompt")
+        else:
+            return False
+        
+        # Always run thema_rhyme_sets table creation (it checks if table exists)
+        logger.info("Running thema_rhyme_sets table creation...")
+        if run_thema_rhyme_sets_migration(conn_params):
+            migrations_run.append("thema_rhyme_sets_table")
         else:
             return False
         
