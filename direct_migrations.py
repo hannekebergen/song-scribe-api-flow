@@ -271,7 +271,7 @@ def run_professional_prompt_migration(conn_params):
         return False
 
 def run_thema_rhyme_sets_migration(conn_params):
-    """Create thema_rhyme_sets table if it doesn't exist."""
+    """Fix thema_rhyme_sets table structure - rename words column to rhyme_pairs and change type to JSON."""
     try:
         conn = psycopg2.connect(**conn_params)
         cursor = conn.cursor()
@@ -284,31 +284,81 @@ def run_thema_rhyme_sets_migration(conn_params):
             );
         """)
         
-        if cursor.fetchone()[0]:
-            logger.info("thema_rhyme_sets table already exists, skipping creation")
+        if not cursor.fetchone()[0]:
+            logger.info("thema_rhyme_sets table doesn't exist, creating it...")
+            
+            # Create thema_rhyme_sets table with correct structure
+            cursor.execute("""
+                CREATE TABLE thema_rhyme_sets (
+                    id SERIAL PRIMARY KEY,
+                    thema_id INTEGER NOT NULL REFERENCES themas(id) ON DELETE CASCADE,
+                    rhyme_pattern VARCHAR(10) NOT NULL,
+                    rhyme_pairs JSON NOT NULL,
+                    difficulty_level VARCHAR(20) DEFAULT 'medium' NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+                )
+            """)
+            
+            # Add indexes
+            cursor.execute("CREATE INDEX idx_thema_rhyme_sets_thema_id ON thema_rhyme_sets (thema_id)")
+            cursor.execute("CREATE INDEX idx_thema_rhyme_sets_rhyme_pattern ON thema_rhyme_sets (rhyme_pattern)")
+            
+            logger.info("✅ Created thema_rhyme_sets table with correct structure")
+            
+            conn.commit()
             cursor.close()
             conn.close()
             return True
         
-        logger.info("Creating thema_rhyme_sets table...")
-        
-        # Create thema_rhyme_sets table
+        # Check if words column exists (old structure)
         cursor.execute("""
-            CREATE TABLE thema_rhyme_sets (
-                id SERIAL PRIMARY KEY,
-                thema_id INTEGER NOT NULL REFERENCES themas(id) ON DELETE CASCADE,
-                rhyme_pattern VARCHAR(10) NOT NULL,
-                rhyme_pairs JSON NOT NULL,
-                difficulty_level VARCHAR(20) DEFAULT 'medium' NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-            )
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'thema_rhyme_sets' 
+                AND column_name = 'words'
+            );
         """)
         
-        # Add indexes
-        cursor.execute("CREATE INDEX idx_thema_rhyme_sets_thema_id ON thema_rhyme_sets (thema_id)")
-        cursor.execute("CREATE INDEX idx_thema_rhyme_sets_rhyme_pattern ON thema_rhyme_sets (rhyme_pattern)")
-        
-        logger.info("✅ Created thema_rhyme_sets table with indexes")
+        if cursor.fetchone()[0]:
+            logger.info("Found old 'words' column, converting to 'rhyme_pairs' JSON...")
+            
+            # Add rhyme_pairs column
+            cursor.execute("ALTER TABLE thema_rhyme_sets ADD COLUMN rhyme_pairs JSON")
+            
+            # Convert existing words data to rhyme_pairs format
+            # For now, convert each word to a single-word pair: [word, word]
+            cursor.execute("""
+                UPDATE thema_rhyme_sets 
+                SET rhyme_pairs = (
+                    SELECT json_agg(json_build_array(word, word))
+                    FROM unnest(words) AS word
+                )
+                WHERE words IS NOT NULL
+            """)
+            
+            # Drop the old words column
+            cursor.execute("ALTER TABLE thema_rhyme_sets DROP COLUMN words")
+            
+            logger.info("✅ Converted 'words' column to 'rhyme_pairs' JSON")
+            
+        else:
+            # Check if rhyme_pairs column already exists with correct type
+            cursor.execute("""
+                SELECT data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'thema_rhyme_sets' 
+                AND column_name = 'rhyme_pairs'
+            """)
+            
+            result = cursor.fetchone()
+            if result and result[0] == 'json':
+                logger.info("rhyme_pairs column already exists with correct JSON type")
+            else:
+                logger.info("rhyme_pairs column doesn't exist or has wrong type, creating it...")
+                
+                # Add rhyme_pairs column if it doesn't exist
+                cursor.execute("ALTER TABLE thema_rhyme_sets ADD COLUMN rhyme_pairs JSON")
+                logger.info("✅ Added rhyme_pairs JSON column")
         
         conn.commit()
         cursor.close()
@@ -316,7 +366,7 @@ def run_thema_rhyme_sets_migration(conn_params):
         return True
         
     except Exception as e:
-        logger.error(f"Error creating thema_rhyme_sets table: {e}")
+        logger.error(f"Error fixing thema_rhyme_sets table: {e}")
         return False
 
 def run_rhyme_pairs_fix_migration(conn_params):
