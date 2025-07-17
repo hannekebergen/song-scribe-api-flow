@@ -33,7 +33,7 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
   const [formData, setFormData] = useState<CreateRhymeSetRequest>({
     thema_id: themaId,
     rhyme_pattern: 'AABB',
-    words: [''],
+    rhyme_pairs: [['', '']],
     difficulty_level: 'medium'
   });
   const { toast } = useToast();
@@ -57,7 +57,7 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
     setFormData({
       thema_id: themaId,
       rhyme_pattern: 'AABB',
-      words: [''],
+      rhyme_pairs: [['', '']],
       difficulty_level: 'medium'
     });
     setIsAddingNew(true);
@@ -69,7 +69,7 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
     setFormData({
       thema_id: themaId,
       rhyme_pattern: rhymeSet.rhyme_pattern,
-      words: [...rhymeSet.words],
+      rhyme_pairs: [...rhymeSet.rhyme_pairs],
       difficulty_level: rhymeSet.difficulty_level
     });
     setIsAddingNew(false);
@@ -82,36 +82,42 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
     setIsAddingNew(false);
   };
 
-  const handleAddWord = () => {
+  const handleAddPair = () => {
     setFormData(prev => ({
       ...prev,
-      words: [...prev.words, '']
+      rhyme_pairs: [...prev.rhyme_pairs, ['', '']]
     }));
   };
 
-  const handleRemoveWord = (index: number) => {
+  const handleRemovePair = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      words: prev.words.filter((_, i) => i !== index)
+      rhyme_pairs: prev.rhyme_pairs.filter((_, i) => i !== index)
     }));
   };
 
-  const handleWordChange = (index: number, value: string) => {
+  const handlePairChange = (pairIndex: number, wordIndex: number, value: string) => {
     setFormData(prev => ({
       ...prev,
-      words: prev.words.map((word, i) => i === index ? value : word)
+      rhyme_pairs: prev.rhyme_pairs.map((pair, i) => 
+        i === pairIndex 
+          ? pair.map((word, j) => j === wordIndex ? value : word)
+          : pair
+      )
     }));
   };
 
   const handleSubmit = async () => {
     try {
-      // Filter out empty words
-      const filteredWords = formData.words.filter(word => word.trim() !== '');
+      // Filter out empty pairs and validate
+      const filteredPairs = formData.rhyme_pairs
+        .map(pair => pair.map(word => word.trim()))
+        .filter(pair => pair[0] !== '' && pair[1] !== '');
       
-      if (filteredWords.length < 2) {
+      if (filteredPairs.length < 1) {
         toast({
           title: "Fout",
-          description: "Voeg minimaal 2 rijmwoorden toe",
+          description: "Voeg minimaal 1 rijmend paar toe",
           variant: "destructive"
         });
         return;
@@ -119,7 +125,7 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
 
       const submitData = {
         ...formData,
-        words: filteredWords
+        rhyme_pairs: filteredPairs
       };
 
       if (isAddingNew) {
@@ -197,7 +203,7 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
               {rhymeSets.length} sets
             </Badge>
             <Badge variant="outline" className="text-xs">
-              {rhymeSets.reduce((total, set) => total + set.words.length, 0)} woorden
+              {rhymeSets.reduce((total, set) => total + set.rhyme_pairs.length, 0)} paren
             </Badge>
           </div>
         </div>
@@ -297,15 +303,21 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {rhymeSet.words.map((word, index) => (
-                    <Badge key={index} variant="secondary" className="text-sm">
-                      {word}
-                    </Badge>
+                <div className="space-y-2">
+                  {rhymeSet.rhyme_pairs.map((pair, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-sm">
+                        {pair[0]}
+                      </Badge>
+                      <span className="text-gray-400">↔</span>
+                      <Badge variant="secondary" className="text-sm">
+                        {pair[1]}
+                      </Badge>
+                    </div>
                   ))}
                 </div>
                 <div className="text-xs text-gray-500 mt-2">
-                  {rhymeSet.words.length} rijmwoorden • Toegevoegd op {new Date(rhymeSet.created_at).toLocaleDateString('nl-NL')}
+                  {rhymeSet.rhyme_pairs.length} rijmende paren • Toegevoegd op {new Date(rhymeSet.created_at).toLocaleDateString('nl-NL')}
                 </div>
               </CardContent>
             </Card>
@@ -362,23 +374,30 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
               </div>
             </div>
 
-            {/* Words */}
+            {/* Rhyme Pairs */}
             <div>
-              <Label>Rijmwoorden</Label>
-              <div className="space-y-2 mt-2">
-                {formData.words.map((word, index) => (
-                  <div key={index} className="flex gap-2">
+              <Label>Rijmende Paren</Label>
+              <div className="space-y-3 mt-2">
+                {formData.rhyme_pairs.map((pair, pairIndex) => (
+                  <div key={pairIndex} className="flex items-center gap-2">
                     <Input
-                      value={word}
-                      onChange={(e) => handleWordChange(index, e.target.value)}
-                      placeholder={`Rijmwoord ${index + 1}`}
+                      value={pair[0]}
+                      onChange={(e) => handlePairChange(pairIndex, 0, e.target.value)}
+                      placeholder="Eerste woord"
                       className="flex-1"
                     />
-                    {formData.words.length > 1 && (
+                    <span className="text-gray-400 font-bold">↔</span>
+                    <Input
+                      value={pair[1]}
+                      onChange={(e) => handlePairChange(pairIndex, 1, e.target.value)}
+                      placeholder="Rijmend woord"
+                      className="flex-1"
+                    />
+                    {formData.rhyme_pairs.length > 1 && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleRemoveWord(index)}
+                        onClick={() => handleRemovePair(pairIndex)}
                       >
                         <XIcon className="h-4 w-4" />
                       </Button>
@@ -388,11 +407,11 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleAddWord}
+                  onClick={handleAddPair}
                   className="w-full"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
-                  Rijmwoord Toevoegen
+                  Rijmend Paar Toevoegen
                 </Button>
               </div>
             </div>
@@ -418,7 +437,7 @@ const RhymeSetsEditor: React.FC<RhymeSetsEditorProps> = ({
             Laatste wijziging: {new Date().toLocaleString('nl-NL')}
           </span>
           <span>
-            {rhymeSets.length} rijmwoorden sets met {rhymeSets.reduce((total, set) => total + set.words.length, 0)} woorden
+            {rhymeSets.length} rijmwoorden sets met {rhymeSets.reduce((total, set) => total + set.rhyme_pairs.length, 0)} paren
           </span>
         </div>
       </div>

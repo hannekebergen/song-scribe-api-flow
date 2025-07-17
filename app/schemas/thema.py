@@ -23,7 +23,7 @@ class ThemaElementBase(BaseModel):
 
 class ThemaRhymeSetBase(BaseModel):
     rhyme_pattern: str = Field(..., min_length=1, max_length=10, description="Rijm patroon")
-    words: List[str] = Field(..., min_items=2, description="Lijst van rijmwoorden")
+    rhyme_pairs: List[List[str]] = Field(..., min_items=1, description="Lijst van rijmende paren [['woord1', 'woord2'], ...]")
     difficulty_level: str = Field("medium", description="Moeilijkheidsgraad")
 
 # Request schemas
@@ -52,7 +52,7 @@ class ThemaRhymeSetCreate(ThemaRhymeSetBase):
 
 class ThemaRhymeSetUpdate(BaseModel):
     rhyme_pattern: Optional[str] = Field(None, min_length=1, max_length=10)
-    words: Optional[List[str]] = Field(None, min_items=2)
+    rhyme_pairs: Optional[List[List[str]]] = Field(None, min_items=1)
     difficulty_level: Optional[str] = None
 
 # Response schemas

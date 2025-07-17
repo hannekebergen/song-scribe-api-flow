@@ -54,7 +54,7 @@ class ThemaRhymeSet(Base):
     id = Column(Integer, primary_key=True, index=True)
     thema_id = Column(Integer, ForeignKey("themas.id", ondelete="CASCADE"), nullable=False)
     rhyme_pattern = Column(String(10), nullable=False)  # 'AABB', 'ABAB', etc.
-    words = Column(ARRAY(String), nullable=False)  # ['hart', 'start', 'apart']
+    rhyme_pairs = Column(ARRAY(ARRAY(String)), nullable=False)  # [['hart', 'start'], ['samen', 'dramen']]
     difficulty_level = Column(String(20), default='medium', nullable=False)  # 'easy', 'medium', 'hard'
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
 
@@ -62,4 +62,9 @@ class ThemaRhymeSet(Base):
     thema = relationship("Thema", back_populates="rhyme_sets")
 
     def __repr__(self):
-        return f"<ThemaRhymeSet(pattern='{self.rhyme_pattern}', words={self.words})>" 
+        return f"<ThemaRhymeSet(pattern='{self.rhyme_pattern}', pairs={self.rhyme_pairs})>"
+    
+    @property
+    def words(self):
+        """Backward compatibility: flatten pairs to words list"""
+        return [word for pair in self.rhyme_pairs for word in pair] 

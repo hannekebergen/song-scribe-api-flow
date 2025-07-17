@@ -34,7 +34,8 @@ export interface ThemaRhymeSet {
   id: number;
   thema_id: number;
   rhyme_pattern: string;
-  words: string[];
+  rhyme_pairs: string[][];
+  words?: string[]; // Backward compatibility
   difficulty_level: string;
   created_at: string;
 }
@@ -84,13 +85,13 @@ export interface UpdateElementRequest {
 export interface CreateRhymeSetRequest {
   thema_id: number;
   rhyme_pattern: string;
-  words: string[];
+  rhyme_pairs: string[][];
   difficulty_level?: string;
 }
 
 export interface UpdateRhymeSetRequest {
   rhyme_pattern?: string;
-  words?: string[];
+  rhyme_pairs?: string[][];
   difficulty_level?: string;
 }
 
