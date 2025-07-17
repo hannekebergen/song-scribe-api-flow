@@ -15,7 +15,7 @@ from pydantic import BaseModel, ValidationError, Field
 
 from app.db.session import get_db
 from app.models.order import Order
-from app.schemas.order import OrderRead
+from app.schemas.order import OrderRead, UpdateSongtextRequest
 from app.services.plugpay_client import fetch_and_store_recent_orders, PlugPayAPIError
 from app.auth.token import get_api_key
 from app.crud import order as crud
@@ -673,9 +673,6 @@ async def get_original_songtext(
             detail="Er is een fout opgetreden bij het ophalen van de originele songtekst"
         )
 
-class UpdateSongtextRequest(BaseModel):
-    songtext: str = Field(..., description="De nieuwe songtekst")
-
 @router.post("/{order_id}/update-songtext")
 async def update_order_songtext(
     request: UpdateSongtextRequest,
@@ -703,12 +700,12 @@ async def update_order_songtext(
         # Update de songtekst
         # Eerst proberen als direct attribuut
         if hasattr(order, 'songtekst'):
-            order.songtekst = request.songtext
+            order.songtekst = request.songtekst
         else:
             # Als fallback, sla op in raw_data
             if not order.raw_data:
                 order.raw_data = {}
-            order.raw_data['songtekst'] = request.songtext
+            order.raw_data['songtekst'] = request.songtekst
         
         db.commit()
         
