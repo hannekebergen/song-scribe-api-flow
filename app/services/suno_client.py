@@ -18,14 +18,21 @@ load_dotenv()
 # Setup logging
 logger = logging.getLogger(__name__)
 
-# Try to import aiohttp, fall back to requests if not available
+# Import both aiohttp and requests
 try:
     import aiohttp
     HAS_AIOHTTP = True
 except ImportError:
-    import requests
     HAS_AIOHTTP = False
-    logger.warning("aiohttp not available, using synchronous requests for Suno API")
+    logger.warning("aiohttp not available")
+
+# Always import requests for sync operations
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
+    logger.error("requests not available - sync operations will fail")
 
 class SunoClient:
     """
@@ -312,6 +319,12 @@ class SunoClient:
                 "error": "Suno API key niet geconfigureerd"
             }
         
+        if not HAS_REQUESTS:
+            return {
+                "success": False,
+                "error": "requests module niet beschikbaar"
+            }
+        
         try:
             # Prepare request data according to new Suno API documentation
             data = {
@@ -430,6 +443,12 @@ class SunoClient:
             return {
                 "success": False,
                 "error": "Suno API key niet geconfigureerd"
+            }
+        
+        if not HAS_REQUESTS:
+            return {
+                "success": False,
+                "error": "requests module niet beschikbaar"
             }
         
         try:
