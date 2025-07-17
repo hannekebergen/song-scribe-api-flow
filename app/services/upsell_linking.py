@@ -68,8 +68,8 @@ def find_original_order_for_upsell(db_session: Session, upsell_order_data: Dict[
             return None
         
         # Zoek naar mogelijke originele orders
-        # Zoek 24 uur terug vanaf de UpSell order
-        search_start = upsell_datetime - timedelta(hours=24)
+        # Zoek 7 dagen terug vanaf de UpSell order (was 24 uur)
+        search_start = upsell_datetime - timedelta(days=7)
         
         # Query voor potentiële originele orders
         query = db_session.query(Order).filter(
@@ -99,20 +99,24 @@ def find_original_order_for_upsell(db_session: Session, upsell_order_data: Dict[
                         break
         
         # Als we geen match op email hebben, probeer op naam
-        if not original_orders and customer_name and not customer_email:
+        if not original_orders and customer_name:
+            logger.info(f"Probeer matching op naam voor UpSell {upsell_order_id}: {customer_name}")
+            
             query = db_session.query(Order).filter(
                 Order.bestel_datum >= search_start,
                 Order.bestel_datum < upsell_datetime,
                 Order.order_id != upsell_order_id
             )
             
-            # Zoek op klant_naam of voornaam
+            # Zoek op klant_naam of voornaam - verbeterde matching
             name_query = query.filter(
                 (Order.klant_naam.ilike(f"%{customer_name}%")) |
-                (Order.voornaam.ilike(f"%{customer_name.split()[0]}%"))
+                (Order.voornaam.ilike(f"%{customer_name.split()[0]}%")) |
+                (Order.klant_naam.ilike(f"%{customer_name.split()[0]}%"))  # Match op voornaam in klant_naam
             )
             
             potential_orders = name_query.all()
+            logger.info(f"Gevonden {len(potential_orders)} potentiële orders op naam matching")
             
             for order in potential_orders:
                 if order.raw_data and order.raw_data.get("products"):
@@ -122,6 +126,7 @@ def find_original_order_for_upsell(db_session: Session, upsell_order_data: Dict[
                         
                         if product_id in [274588, 289456] and pivot_type != "upsell":
                             original_orders.append(order)
+                            logger.info(f"Originele order {order.order_id} gevonden via naam matching")
                             break
         
         if not original_orders:
