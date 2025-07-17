@@ -11,6 +11,7 @@ import { useThemas, useThemaCRUD, useThemaDetails } from '@/hooks/useThema';
 import { Thema, ThemaElement } from '@/services/themaApi';
 import ThemaElementsEditor from './ThemaElementsEditor';
 import ProfessionalPromptEditor from './ProfessionalPromptEditor';
+import RhymeSetsEditor from './RhymeSetsEditor';
 
 
 
@@ -19,7 +20,8 @@ const ThemaList = () => {
   const [selectedThemaId, setSelectedThemaId] = useState<number | null>(null);
   const [editingElementsId, setEditingElementsId] = useState<number | null>(null);
   const [editingPromptId, setEditingPromptId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'elements' | 'prompt'>('elements');
+  const [editingRhymeSetsId, setEditingRhymeSetsId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'elements' | 'prompt' | 'rhymes'>('elements');
   const { themas, loading, error, updateParams } = useThemas();
   const { deleteThema, loading: crudLoading } = useThemaCRUD();
   const { thema: themaDetails, elements, rhymeSets, loading: detailsLoading, refetch: refetchThemaDetails } = useThemaDetails(selectedThemaId);
@@ -49,10 +51,15 @@ const ThemaList = () => {
     setEditingPromptId(editingPromptId === selectedThemaId ? null : selectedThemaId);
   };
 
+  const handleToggleRhymeSetsEdit = () => {
+    setEditingRhymeSetsId(editingRhymeSetsId === selectedThemaId ? null : selectedThemaId);
+  };
+
   const handleCloseDialog = () => {
     setSelectedThemaId(null);
     setEditingElementsId(null);
     setEditingPromptId(null);
+    setEditingRhymeSetsId(null);
     setActiveTab('elements');
   };
 
@@ -199,9 +206,10 @@ const ThemaList = () => {
                             <div className="space-y-4">
                               <p className="text-gray-600">{themaDetails.description}</p>
                               
-                              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'elements' | 'prompt')}>
-                                <TabsList className="grid w-full grid-cols-2">
+                              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'elements' | 'prompt' | 'rhymes')}>
+                                <TabsList className="grid w-full grid-cols-3">
                                   <TabsTrigger value="elements">🎵 Elementen</TabsTrigger>
+                                  <TabsTrigger value="rhymes">🎼 Rijmwoorden</TabsTrigger>
                                   <TabsTrigger value="prompt">📝 Professionele Prompt</TabsTrigger>
                                 </TabsList>
                                 
@@ -212,6 +220,16 @@ const ThemaList = () => {
                                     isEditing={editingElementsId === selectedThemaId}
                                     onToggleEdit={handleToggleElementsEdit}
                                     onElementsChange={refetchThemaDetails}
+                                  />
+                                </TabsContent>
+                                
+                                <TabsContent value="rhymes" className="mt-4">
+                                  <RhymeSetsEditor
+                                    themaId={selectedThemaId}
+                                    rhymeSets={rhymeSets || []}
+                                    isEditing={editingRhymeSetsId === selectedThemaId}
+                                    onToggleEdit={handleToggleRhymeSetsEdit}
+                                    onRhymeSetsChange={refetchThemaDetails}
                                   />
                                 </TabsContent>
                                 
