@@ -11,12 +11,14 @@ logger = logging.getLogger(__name__)
 
 def find_original_order_for_upsell(db_session: Session, upsell_order_data: Dict[str, Any]) -> Optional[int]:
     """
-    Vindt de originele order die hoort bij een UpSell order.
+    Vindt de originele order die hoort bij een UpSell order met confidence scoring.
     
     Strategie:
-    1. Zoek naar orders met dezelfde klant (email/naam) binnen 24 uur voor de UpSell
+    1. Zoek naar orders met dezelfde klant (email/naam) binnen 7 dagen voor de UpSell
     2. Filter op standaard orders (product_id 274588 of 289456)
-    3. Selecteer de meest recente match
+    3. Bereken confidence score voor elke match
+    4. Selecteer alleen matches met hoge confidence (>70%)
+    5. Selecteer de beste match
     
     Args:
         db_session: SQLAlchemy database sessie
@@ -68,7 +70,7 @@ def find_original_order_for_upsell(db_session: Session, upsell_order_data: Dict[
             return None
         
         # Zoek naar mogelijke originele orders
-        # Zoek 7 dagen terug vanaf de UpSell order (was 24 uur)
+        # Zoek 7 dagen terug vanaf de UpSell order
         search_start = upsell_datetime - timedelta(days=7)
         
         # Query voor potentiële originele orders
@@ -78,15 +80,11 @@ def find_original_order_for_upsell(db_session: Session, upsell_order_data: Dict[
             Order.order_id != upsell_order_id  # Niet de UpSell order zelf
         )
         
-        # Filter op klant email als beschikbaar
-        if customer_email:
-            query = query.filter(Order.klant_email == customer_email)
-        
         # Filter op standaard orders (product_id 274588 = Standaard 72u, 289456 = Spoed 24u)
-        # We checken de raw_data voor product informatie
         potential_orders = query.all()
         
-        original_orders = []
+        original_orders_with_scores = []
+        
         for order in potential_orders:
             if order.raw_data and order.raw_data.get("products"):
                 for product in order.raw_data["products"]:
@@ -95,53 +93,125 @@ def find_original_order_for_upsell(db_session: Session, upsell_order_data: Dict[
                     
                     # Standaard orders hebben product_id 274588 of 289456 en geen upsell type
                     if product_id in [274588, 289456] and pivot_type != "upsell":
-                        original_orders.append(order)
+                        # Bereken confidence score
+                        confidence = calculate_linking_confidence(
+                            upsell_order_data, order, customer_email, customer_name, upsell_datetime, db_session
+                        )
+                        
+                        if confidence > 70:  # Alleen hoge confidence matches
+                            original_orders_with_scores.append((order, confidence))
+                            logger.info(f"Originele order {order.order_id} gevonden met confidence {confidence}%")
+                        else:
+                            logger.info(f"Originele order {order.order_id} afgewezen (confidence {confidence}% < 70%)")
                         break
         
-        # Als we geen match op email hebben, probeer op naam
-        if not original_orders and customer_name:
-            logger.info(f"Probeer matching op naam voor UpSell {upsell_order_id}: {customer_name}")
-            
-            query = db_session.query(Order).filter(
-                Order.bestel_datum >= search_start,
-                Order.bestel_datum < upsell_datetime,
-                Order.order_id != upsell_order_id
-            )
-            
-            # Zoek op klant_naam of voornaam - verbeterde matching
-            name_query = query.filter(
-                (Order.klant_naam.ilike(f"%{customer_name}%")) |
-                (Order.voornaam.ilike(f"%{customer_name.split()[0]}%")) |
-                (Order.klant_naam.ilike(f"%{customer_name.split()[0]}%"))  # Match op voornaam in klant_naam
-            )
-            
-            potential_orders = name_query.all()
-            logger.info(f"Gevonden {len(potential_orders)} potentiële orders op naam matching")
-            
-            for order in potential_orders:
-                if order.raw_data and order.raw_data.get("products"):
-                    for product in order.raw_data["products"]:
-                        product_id = product.get("id")
-                        pivot_type = product.get("pivot", {}).get("type")
-                        
-                        if product_id in [274588, 289456] and pivot_type != "upsell":
-                            original_orders.append(order)
-                            logger.info(f"Originele order {order.order_id} gevonden via naam matching")
-                            break
-        
-        if not original_orders:
-            logger.info(f"Geen originele order gevonden voor UpSell {upsell_order_id}")
+        if not original_orders_with_scores:
+            logger.info(f"Geen originele order gevonden voor UpSell {upsell_order_id} (geen matches met hoge confidence)")
             return None
         
-        # Selecteer de meest recente originele order
-        original_order = max(original_orders, key=lambda o: o.bestel_datum)
+        # Selecteer de order met de hoogste confidence score
+        original_orders_with_scores.sort(key=lambda x: x[1], reverse=True)
+        best_match, best_confidence = original_orders_with_scores[0]
         
-        logger.info(f"Originele order {original_order.order_id} gevonden voor UpSell {upsell_order_id}")
-        return original_order.order_id
+        # Als er meerdere matches zijn met vergelijkbare confidence, log een waarschuwing
+        if len(original_orders_with_scores) > 1:
+            second_best_confidence = original_orders_with_scores[1][1]
+            if best_confidence - second_best_confidence < 10:  # Minder dan 10% verschil
+                logger.warning(f"AMBIGUOUS MATCH voor UpSell {upsell_order_id}: "
+                             f"Best match {best_match.order_id} ({best_confidence}%) vs "
+                             f"Second best {original_orders_with_scores[1][0].order_id} ({second_best_confidence}%)")
+        
+        logger.info(f"Originele order {best_match.order_id} geselecteerd voor UpSell {upsell_order_id} (confidence: {best_confidence}%)")
+        return best_match.order_id
         
     except Exception as e:
         logger.error(f"Fout bij zoeken naar originele order voor UpSell {upsell_order_id}: {str(e)}")
         return None
+
+
+def calculate_linking_confidence(upsell_data: Dict[str, Any], original_order, customer_email: str, customer_name: str, upsell_datetime: datetime, db_session: Session) -> float:
+    """
+    Bereken confidence score voor een potentiële match tussen UpSell en originele order.
+    
+    Args:
+        upsell_data: UpSell order data
+        original_order: Originele order object
+        customer_email: Customer email (kan None zijn)
+        customer_name: Customer name
+        upsell_datetime: UpSell order timestamp
+        
+    Returns:
+        float: Confidence score (0-100)
+    """
+    confidence = 0.0
+    
+    # Email matching (hoogste prioriteit)
+    if customer_email and original_order.klant_email:
+        if customer_email.lower() == original_order.klant_email.lower():
+            confidence += 50.0  # Email match is zeer betrouwbaar
+            logger.debug(f"Email match: +50% confidence")
+    
+    # Naam matching
+    if customer_name:
+        # Exacte naam match
+        if original_order.klant_naam and customer_name.lower() == original_order.klant_naam.lower():
+            confidence += 30.0
+            logger.debug(f"Exacte naam match: +30% confidence")
+        # Voornaam match
+        elif original_order.voornaam and customer_name.split()[0].lower() == original_order.voornaam.lower():
+            confidence += 15.0
+            logger.debug(f"Voornaam match: +15% confidence")
+        # Gedeeltelijke naam match
+        elif original_order.klant_naam and customer_name.split()[0].lower() in original_order.klant_naam.lower():
+            confidence += 10.0
+            logger.debug(f"Gedeeltelijke naam match: +10% confidence")
+    
+    # Tijdsperiode matching
+    time_diff = (upsell_datetime - original_order.bestel_datum).total_seconds() / 3600  # uren
+    
+    if time_diff <= 1:  # Binnen 1 uur
+        confidence += 20.0
+        logger.debug(f"Binnen 1 uur: +20% confidence")
+    elif time_diff <= 24:  # Binnen 24 uur
+        confidence += 15.0
+        logger.debug(f"Binnen 24 uur: +15% confidence")
+    elif time_diff <= 168:  # Binnen 7 dagen
+        confidence += 10.0
+        logger.debug(f"Binnen 7 dagen: +10% confidence")
+    else:
+        confidence -= 10.0  # Penalty voor te oude orders
+        logger.debug(f"Te oude order: -10% confidence")
+    
+    # Product type validatie
+    if original_order.raw_data and original_order.raw_data.get("products"):
+        for product in original_order.raw_data["products"]:
+            product_id = product.get("id")
+            pivot_type = product.get("pivot", {}).get("type")
+            
+            if product_id in [274588, 289456] and pivot_type != "upsell":
+                confidence += 5.0  # Bonus voor correcte product type
+                logger.debug(f"Correcte product type: +5% confidence")
+                break
+    
+    # Check voor dubbele orders van dezelfde klant
+    if original_order.klant_naam:
+        # Tel hoeveel orders deze klant heeft in de afgelopen 7 dagen
+        from datetime import timedelta
+        recent_orders = db_session.query(Order).filter(
+            Order.klant_naam == original_order.klant_naam,
+            Order.bestel_datum >= upsell_datetime - timedelta(days=7),
+            Order.bestel_datum < upsell_datetime,
+            Order.order_id != original_order.order_id
+        ).count()
+        
+        if recent_orders > 0:
+            confidence -= (recent_orders * 5.0)  # Penalty voor meerdere orders
+            logger.debug(f"Meerdere orders van klant: -{recent_orders * 5}% confidence")
+    
+    # Cap confidence op 100%
+    confidence = min(confidence, 100.0)
+    
+    return confidence
 
 
 def inherit_theme_from_original(db_session: Session, upsell_order, original_order_id: int) -> bool:

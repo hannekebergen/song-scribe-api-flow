@@ -793,3 +793,169 @@ async def sync_songtext_to_upsells(db: Session, original_order_id: int, songtext
     except Exception as e:
         logger.error(f"Fout bij synchroniseren songtekst naar UpSell orders: {str(e)}")
         # Niet re-raise, want de originele update moet wel doorgaan
+
+@router.get("/upsell-matches/{order_id}")
+async def get_upsell_matches(
+    order_id: int = Path(..., description="UpSell order ID"),
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Haalt alle mogelijke matches op voor een UpSell order met confidence scores.
+    Handig voor het reviewen van dubieuze matches.
+    """
+    try:
+        # Haal de UpSell order op
+        upsell_order = crud.get_order(db, order_id)
+        if not upsell_order:
+            raise HTTPException(status_code=404, detail="UpSell order niet gevonden")
+        
+        # Check of dit een UpSell order is
+        is_upsell = False
+        if upsell_order.raw_data and upsell_order.raw_data.get("products"):
+            for product in upsell_order.raw_data["products"]:
+                pivot_type = product.get("pivot", {}).get("type")
+                if pivot_type == "upsell":
+                    is_upsell = True
+                    break
+        
+        if not is_upsell:
+            raise HTTPException(status_code=400, detail="Dit is geen UpSell order")
+        
+        # Zoek alle mogelijke matches
+        from app.services.upsell_linking import calculate_linking_confidence
+        from datetime import datetime, timedelta
+        
+        # Haal klant informatie op
+        customer_email = None
+        customer_name = None
+        
+        if upsell_order.raw_data.get("customer", {}).get("email"):
+            customer_email = upsell_order.raw_data["customer"]["email"]
+        elif upsell_order.raw_data.get("address", {}).get("email"):
+            customer_email = upsell_order.raw_data["address"]["email"]
+        
+        if upsell_order.raw_data.get("address", {}).get("full_name"):
+            customer_name = upsell_order.raw_data["address"]["full_name"]
+        elif upsell_order.raw_data.get("customer", {}).get("name"):
+            customer_name = upsell_order.raw_data["customer"]["name"]
+        elif upsell_order.raw_data.get("address", {}).get("firstname"):
+            firstname = upsell_order.raw_data["address"]["firstname"]
+            lastname = upsell_order.raw_data["address"].get("lastname", "")
+            customer_name = f"{firstname} {lastname}".strip()
+        
+        # Zoek originele orders
+        search_start = upsell_order.bestel_datum - timedelta(days=7)
+        
+        potential_orders = db.query(Order).filter(
+            Order.bestel_datum >= search_start,
+            Order.bestel_datum < upsell_order.bestel_datum,
+            Order.order_id != order_id
+        ).all()
+        
+        matches = []
+        
+        for order in potential_orders:
+            if order.raw_data and order.raw_data.get("products"):
+                for product in order.raw_data["products"]:
+                    product_id = product.get("id")
+                    pivot_type = product.get("pivot", {}).get("type")
+                    
+                    if product_id in [274588, 289456] and pivot_type != "upsell":
+                        confidence = calculate_linking_confidence(
+                            upsell_order.raw_data, order, customer_email, customer_name, 
+                            upsell_order.bestel_datum, db
+                        )
+                        
+                        matches.append({
+                            "order_id": order.order_id,
+                            "klant_naam": order.klant_naam,
+                            "klant_email": order.klant_email,
+                            "voornaam": order.voornaam,
+                            "bestel_datum": order.bestel_datum.isoformat() if order.bestel_datum else None,
+                            "thema": order.thema,
+                            "product_naam": order.product_naam,
+                            "confidence": round(confidence, 1),
+                            "time_diff_hours": round((upsell_order.bestel_datum - order.bestel_datum).total_seconds() / 3600, 1) if order.bestel_datum else None,
+                            "is_currently_linked": order.order_id == upsell_order.origin_song_id
+                        })
+                        break
+        
+        # Sorteer op confidence
+        matches.sort(key=lambda x: x["confidence"], reverse=True)
+        
+        return {
+            "upsell_order": {
+                "order_id": upsell_order.order_id,
+                "klant_naam": upsell_order.klant_naam,
+                "klant_email": upsell_order.klant_email,
+                "voornaam": upsell_order.voornaam,
+                "bestel_datum": upsell_order.bestel_datum.isoformat() if upsell_order.bestel_datum else None,
+                "origin_song_id": upsell_order.origin_song_id,
+                "customer_email": customer_email,
+                "customer_name": customer_name
+            },
+            "matches": matches,
+            "total_matches": len(matches),
+            "high_confidence_matches": len([m for m in matches if m["confidence"] > 70]),
+            "ambiguous_matches": len([m for m in matches if m["confidence"] > 50 and m["confidence"] <= 70])
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Fout bij ophalen UpSell matches voor order {order_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Er is een fout opgetreden bij het ophalen van UpSell matches"
+        )
+
+
+@router.post("/upsell-matches/{order_id}/link")
+async def manually_link_upsell(
+    order_id: int = Path(..., description="UpSell order ID"),
+    original_order_id: int = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Link een UpSell order handmatig aan een originele order.
+    """
+    try:
+        # Haal de UpSell order op
+        upsell_order = crud.get_order(db, order_id)
+        if not upsell_order:
+            raise HTTPException(status_code=404, detail="UpSell order niet gevonden")
+        
+        # Haal de originele order op
+        original_order = crud.get_order(db, original_order_id)
+        if not original_order:
+            raise HTTPException(status_code=404, detail="Originele order niet gevonden")
+        
+        # Link de orders
+        upsell_order.origin_song_id = original_order_id
+        
+        # Neem thema over als de UpSell order geen thema heeft
+        if not upsell_order.thema or upsell_order.thema == '-' or upsell_order.thema == 'Onbekend':
+            if original_order.thema:
+                upsell_order.thema = original_order.thema
+        
+        db.commit()
+        
+        logger.info(f"UpSell order {order_id} handmatig gelinkt aan originele order {original_order_id}")
+        
+        return {
+            "success": True,
+            "message": f"UpSell order {order_id} gelinkt aan originele order {original_order_id}",
+            "upsell_order_id": order_id,
+            "original_order_id": original_order_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Fout bij handmatig linken van UpSell order {order_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Er is een fout opgetreden bij het handmatig linken"
+        )
