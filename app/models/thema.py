@@ -2,7 +2,7 @@
 SQLAlchemy models voor de Thema Database
 """
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, TIMESTAMP, ForeignKey, ARRAY
+from sqlalchemy import Column, Integer, String, Text, Boolean, TIMESTAMP, ForeignKey, ARRAY, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -54,7 +54,7 @@ class ThemaRhymeSet(Base):
     id = Column(Integer, primary_key=True, index=True)
     thema_id = Column(Integer, ForeignKey("themas.id", ondelete="CASCADE"), nullable=False)
     rhyme_pattern = Column(String(10), nullable=False)  # 'AABB', 'ABAB', etc.
-    rhyme_pairs = Column(ARRAY(ARRAY(String)), nullable=False)  # [['hart', 'start'], ['samen', 'dramen']]
+    rhyme_pairs = Column(JSON, nullable=False)  # [['hart', 'start'], ['samen', 'dramen']]
     difficulty_level = Column(String(20), default='medium', nullable=False)  # 'easy', 'medium', 'hard'
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
 

@@ -270,6 +270,63 @@ def run_professional_prompt_migration(conn_params):
         logger.error(f"Error running professional_prompt migration: {e}")
         return False
 
+def run_rhyme_pairs_fix_migration(conn_params):
+    """Fix the rhyme_pairs column type from ARRAY(ARRAY(String)) to JSON."""
+    try:
+        conn = psycopg2.connect(**conn_params)
+        cursor = conn.cursor()
+        
+        # Check if thema_rhyme_sets table exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'thema_rhyme_sets'
+            );
+        """)
+        
+        if not cursor.fetchone()[0]:
+            logger.info("thema_rhyme_sets table doesn't exist, skipping migration")
+            cursor.close()
+            conn.close()
+            return True
+        
+        # Check current column type
+        cursor.execute("""
+            SELECT data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'thema_rhyme_sets' 
+            AND column_name = 'rhyme_pairs'
+        """)
+        
+        result = cursor.fetchone()
+        if not result:
+            logger.info("rhyme_pairs column doesn't exist, skipping migration")
+            cursor.close()
+            conn.close()
+            return True
+        
+        current_type = result[0]
+        if current_type == 'json':
+            logger.info("rhyme_pairs column is already JSON type, skipping migration")
+            cursor.close()
+            conn.close()
+            return True
+        
+        logger.info(f"Converting rhyme_pairs column from {current_type} to JSON...")
+        
+        # Convert column type to JSON
+        cursor.execute("ALTER TABLE thema_rhyme_sets ALTER COLUMN rhyme_pairs TYPE JSON USING rhyme_pairs::json")
+        logger.info("✅ Converted rhyme_pairs column to JSON type")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error running rhyme_pairs fix migration: {e}")
+        return False
+
 def run_direct_migrations():
     """Run migrations directly without alembic."""
     start_time = time.time()
@@ -318,8 +375,15 @@ def run_direct_migrations():
         else:
             return False
         
+        # Always run rhyme_pairs fix migration (it checks if needed)
+        logger.info("Running rhyme_pairs fix migration...")
+        if run_rhyme_pairs_fix_migration(conn_params):
+            migrations_run.append("rhyme_pairs_fix")
+        else:
+            return False
+        
         # Update to final version
-        final_version = "add_prof_prompts"
+        final_version = "fix_rhyme_pairs_type"
         if migrations_run:
             if not update_alembic_version(conn_params, final_version):
                 return False
