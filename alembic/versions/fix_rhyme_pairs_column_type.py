@@ -17,16 +17,16 @@ depends_on = None
 
 
 def upgrade():
-    # Change rhyme_pairs column from ARRAY(ARRAY(String)) to JSON
+    # Change rhyme_pairs column from ARRAY(String) to JSON
     op.alter_column('thema_rhyme_sets', 'rhyme_pairs',
-                    existing_type=postgresql.ARRAY(postgresql.ARRAY(sa.String())),
+                    existing_type=postgresql.ARRAY(sa.String()),
                     type_=postgresql.JSON(),
                     existing_nullable=False)
 
 
 def downgrade():
-    # Revert back to ARRAY(ARRAY(String)) - but this might cause issues with existing data
+    # Revert back to ARRAY(String) - but this might cause issues with existing data
     op.alter_column('thema_rhyme_sets', 'rhyme_pairs',
                     existing_type=postgresql.JSON(),
-                    type_=postgresql.ARRAY(postgresql.ARRAY(sa.String())),
-                    existing_nullable=False) 
+                    type_=postgresql.ARRAY(sa.String()),
+                    existing_nullable=False)
