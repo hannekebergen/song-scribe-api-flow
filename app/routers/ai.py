@@ -4,6 +4,7 @@ Integreert met verschillende AI providers (OpenAI, Claude, Gemini)
 """
 
 import logging
+import json
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, Field
@@ -731,5 +732,40 @@ async def suno_health_check(api_key: str = Depends(get_api_key)):
             "status": "error",
             "has_suno_key": False,
             "base_url": "unknown",
+            "error": str(e)
+        }
+
+@router.post("/suno-callback")
+async def suno_callback_endpoint(request: dict):
+    """
+    Callback endpoint voor SUNO API notifications
+    
+    SUNO API stuurt updates naar dit endpoint tijdens muziekgeneratie:
+    - text: Tekst generatie voltooid
+    - first: Eerste track voltooid  
+    - complete: Alle tracks voltooid
+    """
+    try:
+        logger.info(f"SUNO callback ontvangen: {json.dumps(request, indent=2)}")
+        
+        # Extract callback data
+        callback_type = request.get("callbackType")
+        task_id = request.get("taskId")
+        
+        if callback_type == "complete":
+            logger.info(f"SUNO muziekgeneratie voltooid voor task {task_id}")
+            # Hier zou je de database kunnen updaten of notifications versturen
+        
+        return {
+            "success": True,
+            "message": "Callback ontvangen",
+            "callback_type": callback_type,
+            "task_id": task_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in SUNO callback: {str(e)}")
+        return {
+            "success": False,
             "error": str(e)
         }

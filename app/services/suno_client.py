@@ -100,7 +100,7 @@ class SunoClient:
                 "customMode": custom_mode,
                 "instrumental": instrumental,
                 "model": model,
-                "callBackUrl": callback_url or "https://api.example.com/callback"  # Required field
+                "callBackUrl": callback_url or "https://jouwsong-api.onrender.com/api/ai/suno-callback"  # Required field
             }
             
             # Add required parameters for Custom Mode
@@ -331,7 +331,7 @@ class SunoClient:
                 "customMode": custom_mode,
                 "instrumental": instrumental,
                 "model": model,
-                "callBackUrl": callback_url or "https://api.example.com/callback"  # Required field
+                "callBackUrl": callback_url or "https://jouwsong-api.onrender.com/api/ai/suno-callback"  # Required field
             }
             
             # Add required parameters for Custom Mode
